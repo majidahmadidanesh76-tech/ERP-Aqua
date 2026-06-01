@@ -306,4 +306,19 @@ class DailyMortality:
         self.date = ""
         self.count = 0
         self.cause = ""
+        self.note = ""
+
+class WaterParameter:
+    """مدل پارامترهای محیطی آب"""
+    def __init__(self):
+        self.id = ""
+        self.farm_id = ""
+        self.mooring_id = ""
+        self.cage_id = ""
+        self.date = ""
+        self.time = ""
+        self.temperature = 0.0
+        self.dissolved_oxygen = 0.0
+        self.salinity = 0.0
+        self.ph = 0.0
         self.note = ""        

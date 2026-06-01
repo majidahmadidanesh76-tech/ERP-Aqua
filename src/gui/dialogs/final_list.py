@@ -1,6 +1,6 @@
 """
 دیالوگ نمایش لیست کامل اجزای مورینگ برای ERP-Aqua
-نسخه نهایی - بدون حاشیه دور جدول‌ها
+نسخه نهایی - با کادر نازک و تب‌های هماهنگ
 """
 
 from PyQt5 import QtWidgets, QtCore
@@ -45,6 +45,30 @@ class FinalConfirmDialog(BaseDialog):
         self.tab_widget = QtWidgets.QTabWidget()
         self.tab_widget.setTabPosition(QtWidgets.QTabWidget.North)
         self.tab_widget.setIconSize(QtCore.QSize(18, 18))
+        
+        # استایل تب‌ها با کادر نازک و رنگ‌های هماهنگ
+        self.tab_widget.setStyleSheet("""
+            QTabWidget::pane {
+                border: 1px solid #3E3E42;
+                border-radius: 4px;
+                background: #1E1E1E;
+            }
+            QTabBar::tab {
+                background-color: #2D2D30;
+                color: #C8C8C8;
+                padding: 6px 12px;
+                margin: 2px;
+                border-radius: 4px;
+            }
+            QTabBar::tab:selected {
+                background-color: #0E639C;
+                color: white;
+            }
+            QTabBar::tab:hover:!selected {
+                background-color: #3E3E42;
+            }
+        """)
+        
         layout.addWidget(self.tab_widget)
         
         # دکمه بستن
@@ -124,22 +148,28 @@ class FinalConfirmDialog(BaseDialog):
             self.tab_widget.addTab(lbl, "خطا")
             return
         
-        # استایل بدون حاشیه برای همه جداول
+        # استایل بدون حاشیه برای همه جداول (فقط حاشیه بیرونی از تب‌ها تامین می‌شود)
         no_border_style = """
             QTableWidget {
                 border: none;
                 outline: none;
                 background-color: #2D2D30;
+                alternate-background-color: #252526;
+                gridline-color: #3E3E42;
             }
             QTableWidget::item {
                 border: none;
                 padding: 4px;
+                color: #C8C8C8;
+            }
+            QTableWidget::item:selected {
+                background-color: #0E639C;
             }
             QHeaderView::section {
+                background-color: #252526;
+                color: #569CD6;
                 border: none;
                 border-bottom: 1px solid #3E3E42;
-                background-color: #252526;
-                color: #C8C8C8;
                 padding: 4px;
             }
         """
@@ -147,6 +177,7 @@ class FinalConfirmDialog(BaseDialog):
         # ==================== بویه‌ها ====================
         buoy_table = QtWidgets.QTableWidget()
         buoy_table.setStyleSheet(no_border_style)
+        buoy_table.setAlternatingRowColors(True)
         buoy_table.setFrameShape(QtWidgets.QFrame.NoFrame)
         buoy_table.setColumnCount(12)
         buoy_table.setHorizontalHeaderLabels([
@@ -173,6 +204,7 @@ class FinalConfirmDialog(BaseDialog):
         # ==================== لنگرها ====================
         anchor_table = QtWidgets.QTableWidget()
         anchor_table.setStyleSheet(no_border_style)
+        anchor_table.setAlternatingRowColors(True)
         anchor_table.setFrameShape(QtWidgets.QFrame.NoFrame)
         anchor_table.setColumnCount(10)
         anchor_table.setHorizontalHeaderLabels([
@@ -197,6 +229,7 @@ class FinalConfirmDialog(BaseDialog):
         # ==================== زنجیرها ====================
         chain_table = QtWidgets.QTableWidget()
         chain_table.setStyleSheet(no_border_style)
+        chain_table.setAlternatingRowColors(True)
         chain_table.setFrameShape(QtWidgets.QFrame.NoFrame)
         chain_table.setColumnCount(9)
         chain_table.setHorizontalHeaderLabels([
@@ -222,6 +255,7 @@ class FinalConfirmDialog(BaseDialog):
         # ==================== طناب اصلی ====================
         rope_table = QtWidgets.QTableWidget()
         rope_table.setStyleSheet(no_border_style)
+        rope_table.setAlternatingRowColors(True)
         rope_table.setFrameShape(QtWidgets.QFrame.NoFrame)
         rope_table.setColumnCount(10)
         rope_table.setHorizontalHeaderLabels([
@@ -248,6 +282,7 @@ class FinalConfirmDialog(BaseDialog):
         # ==================== زنجیر بویه ====================
         buoy_chain_table = QtWidgets.QTableWidget()
         buoy_chain_table.setStyleSheet(no_border_style)
+        buoy_chain_table.setAlternatingRowColors(True)
         buoy_chain_table.setFrameShape(QtWidgets.QFrame.NoFrame)
         buoy_chain_table.setColumnCount(9)
         buoy_chain_table.setHorizontalHeaderLabels([
@@ -271,6 +306,7 @@ class FinalConfirmDialog(BaseDialog):
         # ==================== شاکل‌ها ====================
         shackle_table = QtWidgets.QTableWidget()
         shackle_table.setStyleSheet(no_border_style)
+        shackle_table.setAlternatingRowColors(True)
         shackle_table.setFrameShape(QtWidgets.QFrame.NoFrame)
         shackle_table.setColumnCount(9)
         shackle_table.setHorizontalHeaderLabels([
@@ -294,6 +330,7 @@ class FinalConfirmDialog(BaseDialog):
         # ==================== طناب برایدل ====================
         bridle_table = QtWidgets.QTableWidget()
         bridle_table.setStyleSheet(no_border_style)
+        bridle_table.setAlternatingRowColors(True)
         bridle_table.setFrameShape(QtWidgets.QFrame.NoFrame)
         bridle_table.setColumnCount(9)
         bridle_table.setHorizontalHeaderLabels([
@@ -317,6 +354,7 @@ class FinalConfirmDialog(BaseDialog):
         # ==================== قفس‌ها ====================
         cage_table = QtWidgets.QTableWidget()
         cage_table.setStyleSheet(no_border_style)
+        cage_table.setAlternatingRowColors(True)
         cage_table.setFrameShape(QtWidgets.QFrame.NoFrame)
         cage_table.setColumnCount(8)
         cage_table.setHorizontalHeaderLabels([
@@ -339,6 +377,7 @@ class FinalConfirmDialog(BaseDialog):
         # ==================== تورها ====================
         net_table = QtWidgets.QTableWidget()
         net_table.setStyleSheet(no_border_style)
+        net_table.setAlternatingRowColors(True)
         net_table.setFrameShape(QtWidgets.QFrame.NoFrame)
         net_table.setColumnCount(8)
         net_table.setHorizontalHeaderLabels([
@@ -361,6 +400,7 @@ class FinalConfirmDialog(BaseDialog):
         # ==================== کلکتورها ====================
         collector_table = QtWidgets.QTableWidget()
         collector_table.setStyleSheet(no_border_style)
+        collector_table.setAlternatingRowColors(True)
         collector_table.setFrameShape(QtWidgets.QFrame.NoFrame)
         collector_table.setColumnCount(9)
         collector_table.setHorizontalHeaderLabels([
@@ -380,11 +420,3 @@ class FinalConfirmDialog(BaseDialog):
             collector_table.setItem(i, 8, QtWidgets.QTableWidgetItem(col.note))
         collector_table.horizontalHeader().setStretchLastSection(True)
         self.tab_widget.addTab(collector_table, qta.icon('fa5s.circle', color='#569CD6'), "کلکتورها")
-        
-        # استایل نهایی برای حذف هرگونه حاشیه باقیمانده
-        self.tab_widget.setStyleSheet("""
-            QTabWidget::pane {
-                border: none;
-                background: transparent;
-            }
-        """)

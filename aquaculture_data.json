@@ -36,5 +36,26 @@
         }
       ]
     }
+  ],
+  "water_parameters": [
+    {
+      "key": "مزرعه_درنیکا_MOO-001",
+      "farm_id": "مزرعه_درنیکا",
+      "mooring_id": "MOO-001",
+      "parameters": [
+        {
+          "farm_id": "مزرعه_درنیکا",
+          "mooring_id": "MOO-001",
+          "cage_id": "Cage-001",
+          "date": "2026/06/01",
+          "time": "صبح (6-8)",
+          "temperature": 27.0,
+          "dissolved_oxygen": 3.0,
+          "salinity": 7.0,
+          "ph": 3.0,
+          "note": ""
+        }
+      ]
+    }
   ]
 }
