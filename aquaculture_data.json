@@ -15,6 +15,17 @@
           "feed_time": "صبح (6-8)",
           "fcr": 0.0,
           "note": ""
+        },
+        {
+          "farm_id": "مزرعه_درنیکا",
+          "mooring_id": "MOO-001",
+          "cage_id": "Cage-001",
+          "date": "2026/06/01",
+          "feed_type": "شروع (0-20 گرم)",
+          "feed_amount": 200.0,
+          "feed_time": "صبح (6-8)",
+          "fcr": 0.0,
+          "note": ""
         }
       ]
     }
@@ -32,6 +43,15 @@
           "date": "2026/06/01",
           "count": 5,
           "cause": "بیماری باکتریایی",
+          "note": ""
+        },
+        {
+          "farm_id": "مزرعه_درنیکا",
+          "mooring_id": "MOO-001",
+          "cage_id": "Cage-001",
+          "date": "2026/06/01",
+          "count": 3,
+          "cause": "انگل",
           "note": ""
         }
       ]
@@ -53,6 +73,37 @@
           "dissolved_oxygen": 3.0,
           "salinity": 7.0,
           "ph": 3.0,
+          "note": ""
+        },
+        {
+          "farm_id": "مزرعه_درنیکا",
+          "mooring_id": "MOO-001",
+          "cage_id": "Cage-001",
+          "date": "2026/06/01",
+          "time": "صبح (6-8)",
+          "temperature": 23.0,
+          "dissolved_oxygen": 2.0,
+          "salinity": 8.0,
+          "ph": 3.0,
+          "note": ""
+        }
+      ]
+    }
+  ],
+  "biomasses": [
+    {
+      "key": "مزرعه_درنیکا_MOO-001",
+      "farm_id": "مزرعه_درنیکا",
+      "mooring_id": "MOO-001",
+      "biomasses": [
+        {
+          "farm_id": "مزرعه_درنیکا",
+          "mooring_id": "MOO-001",
+          "cage_id": "Cage-001",
+          "date": "2026/06/01",
+          "estimated_weight": 1000.0,
+          "estimated_count": 3,
+          "sample_size": 1,
           "note": ""
         }
       ]

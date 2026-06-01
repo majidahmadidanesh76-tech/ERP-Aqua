@@ -321,4 +321,17 @@ class WaterParameter:
         self.dissolved_oxygen = 0.0
         self.salinity = 0.0
         self.ph = 0.0
+        self.note = ""  
+        
+class Biomass:
+    """مدل زیست‌توده (تخمین وزن و تعداد ماهی قفس)"""
+    def __init__(self):
+        self.id = ""
+        self.farm_id = ""
+        self.mooring_id = ""
+        self.cage_id = ""
+        self.date = ""
+        self.estimated_weight = 0.0      # وزن تخمینی ماهی (گرم)
+        self.estimated_count = 0          # تعداد تخمینی باقیمانده
+        self.sample_size = 0              # تعداد نمونه برای تخمین
         self.note = ""        

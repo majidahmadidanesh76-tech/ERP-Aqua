@@ -12,7 +12,8 @@ import qtawesome as qta
 from .dialogs.feed_dialog import FeedDialog
 from .dialogs.mortality_dialog import MortalityDialog
 from .dialogs.water_parameter_dialog import WaterParameterDialog
-from src.core.models import DailyFeed, DailyMortality, WaterParameter
+from .dialogs.biomass_dialog import BiomassDialog
+from src.core.models import DailyFeed, DailyMortality, WaterParameter, Biomass
 
 
 class AquacultureManagementTab(QtWidgets.QWidget):
@@ -23,6 +24,7 @@ class AquacultureManagementTab(QtWidgets.QWidget):
         self.feeds = []
         self.mortalities = []
         self.water_parameters = []
+        self.biomasses = []
         self.data_file = "aquaculture_data.json"
         self.load_all_data()
         self.setup_ui()
@@ -33,9 +35,11 @@ class AquacultureManagementTab(QtWidgets.QWidget):
         self.load_current_feeds()
         self.load_current_mortalities()
         self.load_current_water_parameters()
+        self.load_current_biomasses()
         self.update_feed_table()
         self.update_mortality_table()
         self.update_water_table()
+        self.update_biomass_table()
     
     # ==================== توابع ذخیره و بارگذاری ====================
     
@@ -43,6 +47,7 @@ class AquacultureManagementTab(QtWidgets.QWidget):
         self.all_feeds = []
         self.all_mortalities = []
         self.all_water_parameters = []
+        self.all_biomasses = []
         if os.path.exists(self.data_file):
             try:
                 with open(self.data_file, 'r', encoding='utf-8') as f:
@@ -50,18 +55,21 @@ class AquacultureManagementTab(QtWidgets.QWidget):
                     self.all_feeds = data.get('feeds', [])
                     self.all_mortalities = data.get('mortalities', [])
                     self.all_water_parameters = data.get('water_parameters', [])
+                    self.all_biomasses = data.get('biomasses', [])
             except Exception as e:
                 print(f"خطا در بارگذاری داده‌ها: {e}")
                 self.all_feeds = []
                 self.all_mortalities = []
                 self.all_water_parameters = []
+                self.all_biomasses = []
     
     def save_all_data(self):
         try:
             data = {
                 'feeds': self.all_feeds,
                 'mortalities': self.all_mortalities,
-                'water_parameters': self.all_water_parameters
+                'water_parameters': self.all_water_parameters,
+                'biomasses': self.all_biomasses
             }
             with open(self.data_file, 'w', encoding='utf-8') as f:
                 json.dump(data, f, indent=2, ensure_ascii=False)
@@ -247,6 +255,64 @@ class AquacultureManagementTab(QtWidgets.QWidget):
                 'farm_id': self.current_farm.id if self.current_farm else '',
                 'mooring_id': self.current_mooring.id if self.current_mooring else '',
                 'parameters': params_data
+            })
+        
+        self.save_all_data()
+    
+    # ==================== زیست‌توده (Biomass) ====================
+    
+    def load_current_biomasses(self):
+        self.biomasses = []
+        key = self.get_mooring_key()
+        if not key:
+            return
+        
+        for item in self.all_biomasses:
+            if item.get('key') == key:
+                for biomass_data in item.get('biomasses', []):
+                    biomass = Biomass()
+                    biomass.farm_id = biomass_data.get('farm_id', '')
+                    biomass.mooring_id = biomass_data.get('mooring_id', '')
+                    biomass.cage_id = biomass_data.get('cage_id', '')
+                    biomass.date = biomass_data.get('date', '')
+                    biomass.estimated_weight = biomass_data.get('estimated_weight', 0.0)
+                    biomass.estimated_count = biomass_data.get('estimated_count', 0)
+                    biomass.sample_size = biomass_data.get('sample_size', 0)
+                    biomass.note = biomass_data.get('note', '')
+                    self.biomasses.append(biomass)
+                break
+    
+    def save_current_biomasses(self):
+        key = self.get_mooring_key()
+        if not key:
+            return
+        
+        biomasses_data = []
+        for biomass in self.biomasses:
+            biomasses_data.append({
+                'farm_id': biomass.farm_id,
+                'mooring_id': biomass.mooring_id,
+                'cage_id': biomass.cage_id,
+                'date': biomass.date,
+                'estimated_weight': biomass.estimated_weight,
+                'estimated_count': biomass.estimated_count,
+                'sample_size': biomass.sample_size,
+                'note': biomass.note
+            })
+        
+        found = False
+        for i, item in enumerate(self.all_biomasses):
+            if item.get('key') == key:
+                self.all_biomasses[i]['biomasses'] = biomasses_data
+                found = True
+                break
+        
+        if not found:
+            self.all_biomasses.append({
+                'key': key,
+                'farm_id': self.current_farm.id if self.current_farm else '',
+                'mooring_id': self.current_mooring.id if self.current_mooring else '',
+                'biomasses': biomasses_data
             })
         
         self.save_all_data()
@@ -570,6 +636,112 @@ class AquacultureManagementTab(QtWidgets.QWidget):
             ])
             self.water_table.setColumnWidth(8, 80)
     
+    # ==================== عملیات زیست‌توده ====================
+    
+    def add_biomass(self):
+        if not self.current_farm or not self.current_mooring:
+            QtWidgets.QMessageBox.warning(
+                self, 
+                "خطا", 
+                "لطفاً ابتدا یک مزرعه و مورینگ را در صفحه طراحی مزرعه انتخاب کنید"
+            )
+            return
+        
+        dialog = BiomassDialog(
+            self, 
+            farms=None, 
+            current_farm=self.current_farm, 
+            current_mooring=self.current_mooring
+        )
+        if dialog.exec_():
+            dialog.biomass.farm_id = self.current_farm.id
+            dialog.biomass.mooring_id = self.current_mooring.id
+            self.biomasses.append(dialog.biomass)
+            self.save_current_biomasses()
+            self.update_biomass_table()
+            QtWidgets.QMessageBox.information(self, "موفق", "زیست‌توده با موفقیت ثبت شد")
+    
+    def edit_biomass(self, index):
+        biomass = self.biomasses[index]
+        dialog = BiomassDialog(
+            self, 
+            farms=None, 
+            current_farm=self.current_farm, 
+            current_mooring=self.current_mooring, 
+            biomass=biomass
+        )
+        if dialog.exec_():
+            self.biomasses[index] = dialog.biomass
+            self.save_current_biomasses()
+            self.update_biomass_table()
+            QtWidgets.QMessageBox.information(self, "موفق", "زیست‌توده با موفقیت ویرایش شد")
+    
+    def delete_biomass(self, index):
+        reply = QtWidgets.QMessageBox.question(
+            self, 
+            "تأیید حذف", 
+            "آیا از حذف این رکورد زیست‌توده مطمئن هستید؟",
+            QtWidgets.QMessageBox.Yes | QtWidgets.QMessageBox.No
+        )
+        if reply == QtWidgets.QMessageBox.Yes:
+            self.biomasses.pop(index)
+            self.save_current_biomasses()
+            self.update_biomass_table()
+            QtWidgets.QMessageBox.information(self, "موفق", "رکورد زیست‌توده حذف شد")
+    
+    def clear_all_biomasses(self):
+        if not self.biomasses:
+            QtWidgets.QMessageBox.information(self, "اطلاع", "هیچ زیست‌توده‌ای برای حذف وجود ندارد")
+            return
+        reply = QtWidgets.QMessageBox.question(
+            self, 
+            "تأیید", 
+            "آیا از حذف همه زیست‌توده‌های این مورینگ مطمئن هستید؟",
+            QtWidgets.QMessageBox.Yes | QtWidgets.QMessageBox.No
+        )
+        if reply == QtWidgets.QMessageBox.Yes:
+            self.biomasses.clear()
+            self.save_current_biomasses()
+            self.update_biomass_table()
+            QtWidgets.QMessageBox.information(self, "موفق", "همه زیست‌توده‌ها حذف شدند")
+    
+    def update_biomass_table(self):
+        self.biomass_table.setRowCount(len(self.biomasses))
+        for i, biomass in enumerate(self.biomasses):
+            self.biomass_table.setItem(i, 0, QtWidgets.QTableWidgetItem(biomass.date))
+            self.biomass_table.setItem(i, 1, QtWidgets.QTableWidgetItem(biomass.cage_id))
+            self.biomass_table.setItem(i, 2, QtWidgets.QTableWidgetItem(f"{biomass.estimated_weight:.1f}"))
+            self.biomass_table.setItem(i, 3, QtWidgets.QTableWidgetItem(str(biomass.estimated_count)))
+            self.biomass_table.setItem(i, 4, QtWidgets.QTableWidgetItem(str(biomass.sample_size)))
+            self.biomass_table.setItem(i, 5, QtWidgets.QTableWidgetItem(biomass.note))
+            
+            btn_widget = QtWidgets.QWidget()
+            btn_layout = QtWidgets.QHBoxLayout(btn_widget)
+            btn_layout.setContentsMargins(0, 0, 0, 0)
+            btn_layout.setSpacing(3)
+            
+            edit_btn = QtWidgets.QToolButton()
+            edit_btn.setIcon(qta.icon('fa5s.edit', color='#569CD6'))
+            edit_btn.setToolTip("ویرایش")
+            edit_btn.clicked.connect(partial(self.edit_biomass, i))
+            
+            delete_btn = QtWidgets.QToolButton()
+            delete_btn.setIcon(qta.icon('fa5s.trash-alt', color='#F48771'))
+            delete_btn.setToolTip("حذف")
+            delete_btn.clicked.connect(partial(self.delete_biomass, i))
+            
+            btn_layout.addWidget(edit_btn)
+            btn_layout.addWidget(delete_btn)
+            btn_layout.addStretch()
+            self.biomass_table.setCellWidget(i, 6, btn_widget)
+        
+        if self.biomass_table.columnCount() < 7:
+            self.biomass_table.setColumnCount(7)
+            self.biomass_table.setHorizontalHeaderLabels([
+                "تاریخ", "قفس", "وزن تخمینی (گرم)", "تعداد تخمینی", "تعداد نمونه", "یادداشت", "عملیات"
+            ])
+            self.biomass_table.setColumnWidth(6, 80)
+    
     # ==================== رابط کاربری ====================
     
     def setup_ui(self):
@@ -688,14 +860,16 @@ class AquacultureManagementTab(QtWidgets.QWidget):
         self.add_feed_btn = QtWidgets.QPushButton("➕ ثبت تغذیه")
         self.add_feed_btn.setStyleSheet("""
             QPushButton {
-                background-color: #0E639C;
-                color: white;
-                border: none;
+                background-color: #3A3A4A;
+                color: #C8C8C8;
+                font-weight: normal;
+                border: 1px solid #4A4A5A;
                 border-radius: 4px;
                 padding: 6px 12px;
             }
             QPushButton:hover {
-                background-color: #1177BB;
+                background-color: #4A4A5A;
+                color: #FFFFFF;
             }
         """)
         self.add_feed_btn.clicked.connect(self.add_feed)
@@ -705,14 +879,16 @@ class AquacultureManagementTab(QtWidgets.QWidget):
         self.add_mortality_btn = QtWidgets.QPushButton("⚠️ ثبت تلفات")
         self.add_mortality_btn.setStyleSheet("""
             QPushButton {
-                background-color: #8B2C2C;
-                color: white;
-                border: none;
+                background-color: #4A3A3A;
+                color: #C8C8C8;
+                font-weight: normal;
+                border: 1px solid #5A4A4A;
                 border-radius: 4px;
                 padding: 6px 12px;
             }
             QPushButton:hover {
-                background-color: #A33C3C;
+                background-color: #5A4A4A;
+                color: #FFFFFF;
             }
         """)
         self.add_mortality_btn.clicked.connect(self.add_mortality)
@@ -722,18 +898,39 @@ class AquacultureManagementTab(QtWidgets.QWidget):
         self.add_water_btn = QtWidgets.QPushButton("💧 ثبت پارامترهای آب")
         self.add_water_btn.setStyleSheet("""
             QPushButton {
-                background-color: #2C5C8C;
-                color: white;
-                border: none;
+                background-color: #3A4A4A;
+                color: #C8C8C8;
+                font-weight: normal;
+                border: 1px solid #4A5A5A;
                 border-radius: 4px;
                 padding: 6px 12px;
             }
             QPushButton:hover {
-                background-color: #3C7CAC;
+                background-color: #4A5A5A;
+                color: #FFFFFF;
             }
         """)
         self.add_water_btn.clicked.connect(self.add_water_parameter)
         toolbar.addWidget(self.add_water_btn)
+        
+        # دکمه ثبت زیست‌توده
+        self.add_biomass_btn = QtWidgets.QPushButton("📊 ثبت زیست‌توده")
+        self.add_biomass_btn.setStyleSheet("""
+            QPushButton {
+                background-color: #4A4A3A;
+                color: #C8C8C8;
+                font-weight: normal;
+                border: 1px solid #5A5A4A;
+                border-radius: 4px;
+                padding: 6px 12px;
+            }
+            QPushButton:hover {
+                background-color: #5A5A4A;
+                color: #FFFFFF;
+            }
+        """)
+        self.add_biomass_btn.clicked.connect(self.add_biomass)
+        toolbar.addWidget(self.add_biomass_btn)
         
         layout.addLayout(toolbar)
         
@@ -765,17 +962,19 @@ class AquacultureManagementTab(QtWidgets.QWidget):
         
         feed_toolbar = QtWidgets.QHBoxLayout()
         feed_toolbar.addStretch()
-        self.clear_feed_btn = QtWidgets.QPushButton("حذف همه تغذیه‌ها")
+        self.clear_feed_btn = QtWidgets.QPushButton("🗑️ حذف همه تغذیه‌ها")
         self.clear_feed_btn.setStyleSheet("""
             QPushButton {
-                background-color: #5C2C2C;
-                color: white;
-                border: none;
+                background-color: #5A4A3A;
+                color: #C8C8C8;
+                font-weight: normal;
+                border: 1px solid #6A5A4A;
                 border-radius: 4px;
                 padding: 4px 10px;
             }
             QPushButton:hover {
-                background-color: #7C3C3C;
+                background-color: #6A5A4A;
+                color: #FFFFFF;
             }
         """)
         self.clear_feed_btn.clicked.connect(self.clear_all_feeds)
@@ -794,17 +993,19 @@ class AquacultureManagementTab(QtWidgets.QWidget):
         
         mortality_toolbar = QtWidgets.QHBoxLayout()
         mortality_toolbar.addStretch()
-        self.clear_mortality_btn = QtWidgets.QPushButton("حذف همه تلفات‌ها")
+        self.clear_mortality_btn = QtWidgets.QPushButton("🗑️ حذف همه تلفات‌ها")
         self.clear_mortality_btn.setStyleSheet("""
             QPushButton {
-                background-color: #5C2C2C;
-                color: white;
-                border: none;
+                background-color: #5A4A3A;
+                color: #C8C8C8;
+                font-weight: normal;
+                border: 1px solid #6A5A4A;
                 border-radius: 4px;
                 padding: 4px 10px;
             }
             QPushButton:hover {
-                background-color: #7C3C3C;
+                background-color: #6A5A4A;
+                color: #FFFFFF;
             }
         """)
         self.clear_mortality_btn.clicked.connect(self.clear_all_mortalities)
@@ -823,17 +1024,19 @@ class AquacultureManagementTab(QtWidgets.QWidget):
         
         water_toolbar = QtWidgets.QHBoxLayout()
         water_toolbar.addStretch()
-        self.clear_water_btn = QtWidgets.QPushButton("حذف همه پارامترهای آب")
+        self.clear_water_btn = QtWidgets.QPushButton("🗑️ حذف همه پارامترهای آب")
         self.clear_water_btn.setStyleSheet("""
             QPushButton {
-                background-color: #5C2C2C;
-                color: white;
-                border: none;
+                background-color: #5A4A3A;
+                color: #C8C8C8;
+                font-weight: normal;
+                border: 1px solid #6A5A4A;
                 border-radius: 4px;
                 padding: 4px 10px;
             }
             QPushButton:hover {
-                background-color: #7C3C3C;
+                background-color: #6A5A4A;
+                color: #FFFFFF;
             }
         """)
         self.clear_water_btn.clicked.connect(self.clear_all_water_parameters)
@@ -844,6 +1047,37 @@ class AquacultureManagementTab(QtWidgets.QWidget):
         self.water_table.setAlternatingRowColors(True)
         water_layout.addWidget(self.water_table)
         self.inner_tabs.addTab(water_tab, "💧 پارامترهای آب")
+        
+        # ========== جدول زیست‌توده ==========
+        biomass_tab = QtWidgets.QWidget()
+        biomass_layout = QtWidgets.QVBoxLayout(biomass_tab)
+        biomass_layout.setContentsMargins(0, 0, 0, 0)
+        
+        biomass_toolbar = QtWidgets.QHBoxLayout()
+        biomass_toolbar.addStretch()
+        self.clear_biomass_btn = QtWidgets.QPushButton("🗑️ حذف همه زیست‌توده‌ها")
+        self.clear_biomass_btn.setStyleSheet("""
+            QPushButton {
+                background-color: #5A4A3A;
+                color: #C8C8C8;
+                font-weight: normal;
+                border: 1px solid #6A5A4A;
+                border-radius: 4px;
+                padding: 4px 10px;
+            }
+            QPushButton:hover {
+                background-color: #6A5A4A;
+                color: #FFFFFF;
+            }
+        """)
+        self.clear_biomass_btn.clicked.connect(self.clear_all_biomasses)
+        biomass_toolbar.addWidget(self.clear_biomass_btn)
+        biomass_layout.addLayout(biomass_toolbar)
+        
+        self.biomass_table = QtWidgets.QTableWidget()
+        self.biomass_table.setAlternatingRowColors(True)
+        biomass_layout.addWidget(self.biomass_table)
+        self.inner_tabs.addTab(biomass_tab, "📊 زیست‌توده")
         
         layout.addWidget(self.inner_tabs)
         
