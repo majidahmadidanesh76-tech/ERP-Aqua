@@ -13,6 +13,7 @@ from .dialogs.feed_dialog import FeedDialog
 from .dialogs.mortality_dialog import MortalityDialog
 from .dialogs.water_parameter_dialog import WaterParameterDialog
 from .dialogs.biomass_dialog import BiomassDialog
+from .growth_dashboard import GrowthDashboard
 from src.core.models import DailyFeed, DailyMortality, WaterParameter, Biomass
 
 
@@ -40,6 +41,9 @@ class AquacultureManagementTab(QtWidgets.QWidget):
         self.update_mortality_table()
         self.update_water_table()
         self.update_biomass_table()
+        # به‌روزرسانی داشبورد
+        if hasattr(self, 'growth_dashboard'):
+            self.growth_dashboard.set_farm_and_mooring(farm, mooring)
     
     # ==================== توابع ذخیره و بارگذاری ====================
     
@@ -1078,6 +1082,17 @@ class AquacultureManagementTab(QtWidgets.QWidget):
         self.biomass_table.setAlternatingRowColors(True)
         biomass_layout.addWidget(self.biomass_table)
         self.inner_tabs.addTab(biomass_tab, "📊 زیست‌توده")
+        
+        # ========== داشبورد تحلیل پرورش ==========
+        dashboard_tab = QtWidgets.QWidget()
+        dashboard_layout = QtWidgets.QVBoxLayout(dashboard_tab)
+        dashboard_layout.setContentsMargins(0, 0, 0, 0)
+        
+        # اضافه کردن ویجت داشبورد به این تب
+        self.growth_dashboard = GrowthDashboard(self, self.current_farm, self.current_mooring)
+        dashboard_layout.addWidget(self.growth_dashboard)
+        
+        self.inner_tabs.addTab(dashboard_tab, "📊 داشبورد تحلیل پرورش")
         
         layout.addWidget(self.inner_tabs)
         
