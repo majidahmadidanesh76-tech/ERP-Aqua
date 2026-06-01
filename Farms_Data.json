@@ -1,0 +1,60 @@
+[
+  {
+    "id": "درنیکا",
+    "name": "درنیکا",
+    "center_x": 0.0,
+    "center_y": 0.0,
+    "moorings": [
+      {
+        "id": "Moor-1",
+        "name": "Moor-1",
+        "buoys": [
+          {
+            "id": "BU-01",
+            "buoy_type": "main",
+            "utm_x": 500.0,
+            "utm_y": 500.0,
+            "color": "#ffff00",
+            "material": "پلاستیک",
+            "volume": 0.0,
+            "install_date": "1405/03/09",
+            "has_light": false,
+            "body_color": "#A0A0A0",
+            "status": "سالم",
+            "note": ""
+          }
+        ],
+        "anchors": [],
+        "anchor_chains": [],
+        "anchor_ropes": [],
+        "buoy_chains": [
+          {
+            "id": "CH-B-01",
+            "diameter": 20.0,
+            "length": 10.0,
+            "material": "فولاد",
+            "chain_type": "ساده",
+            "install_date": "1405/03/09",
+            "status": "سالم",
+            "buoy_id": "BU-01",
+            "collector_id": "COL-1",
+            "note": ""
+          }
+        ],
+        "shackles": [],
+        "bridle_ropes": [],
+        "cages": [],
+        "nets": [],
+        "collectors": [
+          {
+            "id": "COL-1",
+            "buoy_id": "BU-01",
+            "depth": 12.0,
+            "height": 6.0,
+            "color": "#CE9178"
+          }
+        ]
+      }
+    ]
+  }
+]
