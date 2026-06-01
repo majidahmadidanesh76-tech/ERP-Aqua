@@ -219,3 +219,79 @@ class Farm:
         self.center_x = center_x
         self.center_y = center_y
         self.moorings = []
+        
+# ==================== مدل‌های مدیریت آبزی‌پروری (با اتصال به طراحی مزرعه) ====================
+
+class DailyFeed:
+    """مدل تغذیه روزانه - متصل به قفس طراحی شده"""
+    def __init__(self):
+        self.id = ""
+        self.farm_id = ""                # مزرعه
+        self.mooring_id = ""             # مورینگ
+        self.cage_id = ""                # شناسه قفس (از طراحی مزرعه)
+        self.date = ""                   # تاریخ
+        self.feed_type = ""              # نوع غذا
+        self.feed_amount = 0.0           # مقدار غذا (کیلوگرم)
+        self.feed_time = ""              # زمان تغذیه
+        self.fcr = 0.0                   # ضریب تبدیل غذایی
+        self.note = ""
+
+
+class DailyMortality:
+    """مدل تلفات روزانه - متصل به قفس طراحی شده"""
+    def __init__(self):
+        self.id = ""
+        self.farm_id = ""                # مزرعه
+        self.mooring_id = ""             # مورینگ
+        self.cage_id = ""                # شناسه قفس (از طراحی مزرعه)
+        self.date = ""                   # تاریخ
+        self.count = 0                   # تعداد تلفات
+        self.cause = ""                  # علت
+        self.note = ""
+
+
+class WaterParameter:
+    """مدل پارامترهای محیطی آب - متصل به قفس طراحی شده"""
+    def __init__(self):
+        self.id = ""
+        self.farm_id = ""                # مزرعه
+        self.mooring_id = ""             # مورینگ
+        self.cage_id = ""                # شناسه قفس (از طراحی مزرعه)
+        self.date = ""                   # تاریخ
+        self.time = ""                   # زمان اندازه‌گیری
+        self.temperature = 0.0           # دما
+        self.dissolved_oxygen = 0.0      # اکسیژن محلول
+        self.salinity = 0.0              # شوری
+        self.ph = 0.0                    # pH
+        self.note = ""
+
+
+class CageStock:
+    """مدل موجودی و رهاسازی - برای هر قفس طراحی شده"""
+    def __init__(self):
+        self.id = ""
+        self.farm_id = ""                # مزرعه
+        self.mooring_id = ""             # مورینگ
+        self.cage_id = ""                # شناسه قفس (از طراحی مزرعه)
+        self.release_date = ""           # تاریخ رهاسازی
+        self.species = ""                # گونه ماهی
+        self.initial_count = 0           # تعداد اولیه
+        self.initial_weight = 0.0        # وزن اولیه (گرم)
+        self.target_weight = 0.0         # وزن هدف (گرم)
+        self.is_active = True            # فعال بودن دوره پرورش
+        self.harvest_date = ""           # تاریخ برداشت (اگر کامل شده)
+        self.note = ""
+
+
+class Biomass:
+    """مدل زیست‌توده - برآورد وزن و تعداد فعلی قفس"""
+    def __init__(self):
+        self.id = ""
+        self.farm_id = ""                # مزرعه
+        self.mooring_id = ""             # مورینگ
+        self.cage_id = ""                # شناسه قفس
+        self.date = ""                   # تاریخ تخمین
+        self.estimated_weight = 0.0      # وزن تخمینی ماهی (گرم)
+        self.estimated_count = 0         # تعداد تخمینی باقیمانده
+        self.sample_size = 0             # تعداد نمونه
+        self.note = ""        

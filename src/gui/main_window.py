@@ -257,6 +257,12 @@ class MainWindow(QtWidgets.QMainWindow):
             self.stacked.setCurrentWidget(self.aquaculture_tab)
             if hasattr(self.aquaculture_tab, 'tabs'):
                 self.aquaculture_tab.tabs.setCurrentIndex(index)
+                # ارسال مزرعه و مورینگ جاری به تب پرورش
+                if hasattr(self.design_page, 'current_farm') and hasattr(self.design_page, 'current_mooring'):
+                    self.aquaculture_tab.set_farm_and_mooring(
+                        self.design_page.current_farm, 
+                        self.design_page.current_mooring
+                    )
     
     def add_company(self):
         """تعریف شرکت جدید"""
