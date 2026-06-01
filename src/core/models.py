@@ -295,3 +295,15 @@ class Biomass:
         self.estimated_count = 0         # تعداد تخمینی باقیمانده
         self.sample_size = 0             # تعداد نمونه
         self.note = ""        
+        
+class DailyMortality:
+    """مدل تلفات روزانه قفس"""
+    def __init__(self):
+        self.id = ""
+        self.farm_id = ""
+        self.mooring_id = ""
+        self.cage_id = ""
+        self.date = ""
+        self.count = 0
+        self.cause = ""
+        self.note = ""        

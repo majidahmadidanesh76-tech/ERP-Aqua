@@ -1,0 +1,36 @@
+[
+  {
+    "id": "مزرعه_درنیکا",
+    "name": "مزرعه درنیکا",
+    "center_x": 0.0,
+    "center_y": 0.0,
+    "moorings": [
+      {
+        "id": "MOO-001",
+        "name": "مورینگ شماره یک",
+        "buoys": [],
+        "anchors": [],
+        "anchor_chains": [],
+        "anchor_ropes": [],
+        "buoy_chains": [],
+        "shackles": [],
+        "bridle_ropes": [],
+        "cages": [
+          {
+            "id": "Cage-001",
+            "diameter": 28.5,
+            "material": "پلاستیک",
+            "install_date": "2026/06/01",
+            "status": "سالم",
+            "utm_x": 500.0,
+            "utm_y": 500.0,
+            "color": "#569CD6",
+            "note": ""
+          }
+        ],
+        "nets": [],
+        "collectors": []
+      }
+    ]
+  }
+]

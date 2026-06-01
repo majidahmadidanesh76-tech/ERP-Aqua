@@ -1,0 +1,40 @@
+{
+  "feeds": [
+    {
+      "key": "مزرعه_درنیکا_MOO-001",
+      "farm_id": "مزرعه_درنیکا",
+      "mooring_id": "MOO-001",
+      "feeds": [
+        {
+          "farm_id": "مزرعه_درنیکا",
+          "mooring_id": "MOO-001",
+          "cage_id": "Cage-001",
+          "date": "2026/06/01",
+          "feed_type": "شروع (0-20 گرم)",
+          "feed_amount": 200.0,
+          "feed_time": "صبح (6-8)",
+          "fcr": 0.0,
+          "note": ""
+        }
+      ]
+    }
+  ],
+  "mortalities": [
+    {
+      "key": "مزرعه_درنیکا_MOO-001",
+      "farm_id": "مزرعه_درنیکا",
+      "mooring_id": "MOO-001",
+      "mortalities": [
+        {
+          "farm_id": "مزرعه_درنیکا",
+          "mooring_id": "MOO-001",
+          "cage_id": "Cage-001",
+          "date": "2026/06/01",
+          "count": 5,
+          "cause": "بیماری باکتریایی",
+          "note": ""
+        }
+      ]
+    }
+  ]
+}
