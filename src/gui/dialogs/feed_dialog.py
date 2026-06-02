@@ -20,7 +20,7 @@ class FeedDialog(BaseDialog):
         
         edit_mode = feed is not None
         title = "ویرایش تغذیه" if edit_mode else "ثبت تغذیه روزانه"
-        super().__init__(parent, title=title, edit_mode=edit_mode, width=450, height=500)
+        super().__init__(parent, title=title, edit_mode=edit_mode, width=450, height=480)
         self.setup_ui()
     
     def setup_ui(self):
@@ -28,7 +28,7 @@ class FeedDialog(BaseDialog):
         layout.setLabelAlignment(QtCore.Qt.AlignRight)
         layout.setSpacing(10)
         
-        # ========== انتخاب قفس ==========
+        # انتخاب قفس
         self.cage_combo = QtWidgets.QComboBox()
         self.cage_combo.addItem("--- انتخاب قفس ---")
         if self.current_farm and self.current_mooring:
@@ -40,14 +40,13 @@ class FeedDialog(BaseDialog):
                 self.cage_combo.setCurrentIndex(idx)
         layout.addRow("قفس:", self.cage_combo)
         
-        # ========== تاریخ (با ویجت شمسی) ==========
+        # تاریخ
         self.date_edit = JalaliDateEdit()
         if self.feed.date:
-            # بررسی و تنظیم تاریخ شمسی
             self.date_edit.set_jalali_date(self.feed.date)
         layout.addRow("تاریخ:", self.date_edit)
         
-        # ========== نوع غذا ==========
+        # نوع غذا
         self.feed_type_combo = QtWidgets.QComboBox()
         self.feed_type_combo.addItems(["شروع (0-20 گرم)", "رشد (20-100 گرم)", "پایانی (100+ گرم)"])
         if self.feed.feed_type:
@@ -56,14 +55,14 @@ class FeedDialog(BaseDialog):
                 self.feed_type_combo.setCurrentIndex(idx)
         layout.addRow("نوع غذا:", self.feed_type_combo)
         
-        # ========== مقدار غذا ==========
+        # مقدار غذا
         self.feed_amount = QtWidgets.QDoubleSpinBox()
         self.feed_amount.setRange(0, 10000)
         self.feed_amount.setSuffix(" kg")
         self.feed_amount.setValue(self.feed.feed_amount)
         layout.addRow("مقدار غذا:", self.feed_amount)
         
-        # ========== زمان تغذیه ==========
+        # زمان تغذیه
         self.feed_time_combo = QtWidgets.QComboBox()
         self.feed_time_combo.addItems(["صبح (6-8)", "ظهر (12-14)", "عصر (16-18)", "شب (20-22)"])
         if self.feed.feed_time:
@@ -72,15 +71,7 @@ class FeedDialog(BaseDialog):
                 self.feed_time_combo.setCurrentIndex(idx)
         layout.addRow("زمان تغذیه:", self.feed_time_combo)
         
-        # ========== FCR (اختیاری) ==========
-        self.fcr = QtWidgets.QDoubleSpinBox()
-        self.fcr.setRange(0, 10)
-        self.fcr.setSingleStep(0.1)
-        self.fcr.setSuffix(" :1")
-        self.fcr.setValue(self.feed.fcr)
-        layout.addRow("FCR (ضریب تبدیل):", self.fcr)
-        
-        # ========== یادداشت ==========
+        # یادداشت
         self.note = QtWidgets.QTextEdit()
         self.note.setMaximumHeight(80)
         self.note.setPlaceholderText("توضیحات اضافی...")
@@ -107,7 +98,6 @@ class FeedDialog(BaseDialog):
         self.feed.feed_type = self.feed_type_combo.currentText()
         self.feed.feed_amount = self.feed_amount.value()
         self.feed.feed_time = self.feed_time_combo.currentText()
-        self.feed.fcr = self.fcr.value()
         self.feed.note = self.note.toPlainText()
         
         if self.current_farm:

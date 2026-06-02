@@ -1,10 +1,7 @@
 """
 صفحه طراحی و مدیریت مزرعه (بخش اصلی برنامه) برای ERP-Aqua
-شامل جدول‌های مدیریت اجزا و نقشه گرافیکی
+نسخه دیتابیس - با دیباگ برای رفع مشکل ذخیره قفس
 """
-
-import json
-import os
 
 from PyQt5 import QtWidgets, QtCore
 from functools import partial
@@ -17,6 +14,7 @@ from ..core.constants import (
 )
 from ..graphics.graphics_view import MooringGraphicsView
 from ..widgets.color_button import ColorButton
+from ..database.db_handler import DatabaseHandler
 from .dialogs import (
     AddFarmDialog, EditFarmDialog, AddMooringDialog, EditMooringDialog,
     BuoyDialog, AnchorDialog, AddChainDialog, AddRopeDialog,
@@ -34,13 +32,13 @@ class FarmDesignTab(QtWidgets.QWidget):
     
     def __init__(self, parent=None):
         super().__init__(parent)
+        self.db = DatabaseHandler()
         self.farms = []
         self.current_farm = None
         self.current_mooring = None
         self.current_table_index = 0
-        self.data_file = "farm_design_data.json"  # فایل ذخیره داده‌ها
         self.setup_ui()
-        self.load_data()  # بارگذاری خودکار داده‌ها هنگام اجرا
+        self.load_data()
     
     def setup_ui(self):
         """تنظیم رابط کاربری اصلی"""
@@ -291,14 +289,14 @@ class FarmDesignTab(QtWidgets.QWidget):
         self.save_btn = QtWidgets.QToolButton()
         self.save_btn.setIcon(qta.icon('fa5s.save', color='#C8C8C8'))
         self.save_btn.setIconSize(QtCore.QSize(18, 18))
-        self.save_btn.setToolTip("ذخیره داده‌ها در فایل")
+        self.save_btn.setToolTip("ذخیره داده‌ها در دیتابیس")
         self.save_btn.clicked.connect(self.save_data)
         layout.addWidget(self.save_btn)
         
         self.load_btn = QtWidgets.QToolButton()
         self.load_btn.setIcon(qta.icon('fa5s.folder-open', color='#C8C8C8'))
         self.load_btn.setIconSize(QtCore.QSize(18, 18))
-        self.load_btn.setToolTip("بارگذاری داده‌ها از فایل")
+        self.load_btn.setToolTip("بارگذاری داده‌ها از دیتابیس")
         self.load_btn.clicked.connect(self.load_data)
         layout.addWidget(self.load_btn)
         
@@ -367,6 +365,7 @@ class FarmDesignTab(QtWidgets.QWidget):
     def show_collector_table(self): self.table_stacked.setCurrentIndex(9); self.current_table_index = 9; self.update_all_tables()
     
     # ==================== توابع کمکی ====================
+    
     def update_mooring_list(self):
         self.mooring_list_widget.clear()
         if not self.current_farm:
@@ -475,13 +474,30 @@ class FarmDesignTab(QtWidgets.QWidget):
                 len(mooring.bridle_ropes) == 0 and len(mooring.cages) == 0 and
                 len(mooring.nets) == 0 and len(mooring.collectors) == 0)
     
-    # ==================== توابع مدیریت مزرعه و مورینگ ====================
+    # ==================== ذخیره و بارگذاری با دیتابیس ====================
+    
+    def load_data(self):
+        """بارگذاری داده‌ها از دیتابیس"""
+        self.farms = self.db.get_all_farms()
+        print(f"DEBUG: تعداد مزارع بارگذاری شده: {len(self.farms)}")
+        self.update_farm_combo()
+        if self.farm_combo.count() > 0:
+            self.on_farm_selected(0)
+    
+    def save_data(self):
+        """ذخیره داده‌ها در دیتابیس"""
+        QtWidgets.QMessageBox.information(self, "اطلاع", "داده‌ها در دیتابیس ذخیره هستند")
+    
+    # ==================== توابع مدیریت مزرعه ====================
+    
     def add_farm(self):
         dialog = AddFarmDialog(self)
         if dialog.exec_() and dialog.farm:
-            self.farms.append(dialog.farm)
-            self.update_farm_combo()
-            self.save_data()  # ذخیره خودکار
+            if self.db.save_farm(dialog.farm):
+                self.farms.append(dialog.farm)
+                self.update_farm_combo()
+            else:
+                QtWidgets.QMessageBox.warning(self, "خطا", "خطا در ذخیره مزرعه در دیتابیس")
     
     def edit_farm(self):
         if not self.current_farm:
@@ -493,9 +509,11 @@ class FarmDesignTab(QtWidgets.QWidget):
             self.current_farm.id = dialog.farm.id
             self.current_farm.center_x = dialog.farm.center_x
             self.current_farm.center_y = dialog.farm.center_y
-            self.update_farm_combo()
-            self.refresh_map()
-            self.save_data()  # ذخیره خودکار
+            if self.db.save_farm(self.current_farm):
+                self.update_farm_combo()
+                self.refresh_map()
+            else:
+                QtWidgets.QMessageBox.warning(self, "خطا", "خطا در ویرایش مزرعه")
     
     def delete_farm(self):
         if not self.current_farm:
@@ -507,14 +525,18 @@ class FarmDesignTab(QtWidgets.QWidget):
             return
         dialog = DeleteConfirmDialog(self, "مزرعه", self.current_farm.name, False)
         if dialog.exec_():
-            self.farms.remove(self.current_farm)
-            self.current_farm = None
-            self.update_farm_combo()
-            self.mooring_combo.clear()
-            self.mooring_list_widget.clear()
-            self.graphics_view.set_farm(None)
-            QtWidgets.QMessageBox.information(self, "موفق", "مزرعه با موفقیت حذف شد")
-            self.save_data()  # ذخیره خودکار
+            if self.db.delete_farm(self.current_farm.id):
+                self.farms.remove(self.current_farm)
+                self.current_farm = None
+                self.update_farm_combo()
+                self.mooring_combo.clear()
+                self.mooring_list_widget.clear()
+                self.graphics_view.set_farm(None)
+                QtWidgets.QMessageBox.information(self, "موفق", "مزرعه با موفقیت حذف شد")
+            else:
+                QtWidgets.QMessageBox.warning(self, "خطا", "خطا در حذف مزرعه")
+    
+    # ==================== توابع مدیریت مورینگ ====================
     
     def add_mooring(self):
         if not self.current_farm:
@@ -522,12 +544,14 @@ class FarmDesignTab(QtWidgets.QWidget):
             return
         dialog = AddMooringDialog(self)
         if dialog.exec_() and dialog.mooring:
-            self.current_farm.moorings.append(dialog.mooring)
-            self.update_mooring_combo()
-            self.update_mooring_list()
-            self.on_mooring_selected(0)
-            self.refresh_map()
-            self.save_data()  # ذخیره خودکار
+            if self.db.save_mooring(dialog.mooring, self.current_farm.id):
+                self.current_farm.moorings.append(dialog.mooring)
+                self.update_mooring_combo()
+                self.update_mooring_list()
+                self.on_mooring_selected(0)
+                self.refresh_map()
+            else:
+                QtWidgets.QMessageBox.warning(self, "خطا", "خطا در ذخیره مورینگ")
     
     def edit_mooring(self):
         if not self.current_mooring:
@@ -538,30 +562,21 @@ class FarmDesignTab(QtWidgets.QWidget):
             old_id = self.current_mooring.id
             self.current_mooring.id = dialog.mooring.id
             self.current_mooring.name = dialog.mooring.name
-            for buoy in self.current_mooring.buoys:
-                buoy.mooring_id = self.current_mooring.id
-            for anchor in self.current_mooring.anchors:
-                anchor.mooring_id = self.current_mooring.id
-            for chain in self.current_mooring.anchor_chains:
-                chain.mooring_id = self.current_mooring.id
-            for rope in self.current_mooring.anchor_ropes:
-                rope.mooring_id = self.current_mooring.id
-            for buoy_chain in self.current_mooring.buoy_chains:
-                buoy_chain.mooring_id = self.current_mooring.id
-            for shackle in self.current_mooring.shackles:
-                shackle.mooring_id = self.current_mooring.id
-            for bridle in self.current_mooring.bridle_ropes:
-                bridle.mooring_id = self.current_mooring.id
-            for cage in self.current_mooring.cages:
-                cage.mooring_id = self.current_mooring.id
-            for net in self.current_mooring.nets:
-                net.mooring_id = self.current_mooring.id
-            for collector in self.current_mooring.collectors:
-                collector.mooring_id = self.current_mooring.id
-            self.update_mooring_combo()
-            self.update_mooring_list()
-            self.refresh_map()
-            self.save_data()  # ذخیره خودکار
+            if self.db.save_mooring(self.current_mooring, self.current_farm.id):
+                for buoy in self.current_mooring.buoys:
+                    buoy.mooring_id = self.current_mooring.id
+                    self.db.save_buoy(buoy, self.current_mooring.id)
+                for anchor in self.current_mooring.anchors:
+                    anchor.mooring_id = self.current_mooring.id
+                    self.db.save_anchor(anchor, self.current_mooring.id)
+                for cage in self.current_mooring.cages:
+                    cage.mooring_id = self.current_mooring.id
+                    self.db.save_cage(cage, self.current_mooring.id)
+                self.update_mooring_combo()
+                self.update_mooring_list()
+                self.refresh_map()
+            else:
+                QtWidgets.QMessageBox.warning(self, "خطا", "خطا در ویرایش مورینگ")
     
     def delete_mooring(self):
         if not self.current_mooring:
@@ -573,45 +588,51 @@ class FarmDesignTab(QtWidgets.QWidget):
             return
         dialog = DeleteConfirmDialog(self, "مورینگ", self.current_mooring.id, False)
         if dialog.exec_() and self.current_farm:
-            self.current_farm.moorings.remove(self.current_mooring)
-            self.current_mooring = None
-            self.update_mooring_combo()
-            self.update_mooring_list()
-            self.graphics_view.set_farm(self.current_farm)
-            QtWidgets.QMessageBox.information(self, "موفق", "مورینگ با موفقیت حذف شد")
-            self.save_data()  # ذخیره خودکار
+            if self.db.delete_mooring(self.current_mooring.id):
+                self.current_farm.moorings.remove(self.current_mooring)
+                self.current_mooring = None
+                self.update_mooring_combo()
+                self.update_mooring_list()
+                self.graphics_view.set_farm(self.current_farm)
+                QtWidgets.QMessageBox.information(self, "موفق", "مورینگ با موفقیت حذف شد")
+            else:
+                QtWidgets.QMessageBox.warning(self, "خطا", "خطا در حذف مورینگ")
     
     def show_final_list(self):
         dialog = FinalConfirmDialog(self, self.farms, self.current_farm, self.current_mooring)
         dialog.exec_()
     
     # ==================== توابع مدیریت اجزا ====================
+    
     def add_buoy(self):
         if not self.current_mooring:
             QtWidgets.QMessageBox.warning(self, "خطا", "لطفاً ابتدا یک مورینگ انتخاب کنید")
             return
         dialog = BuoyDialog(self, edit_mode=False, mooring_id=self.current_mooring.id)
         if dialog.exec_() and dialog.buoy:
-            self.current_mooring.buoys.append(dialog.buoy)
-            self.update_all_tables()
-            self.refresh_map()
-            self.save_data()  # ذخیره خودکار
+            if self.db.save_buoy(dialog.buoy, self.current_mooring.id):
+                self.current_mooring.buoys.append(dialog.buoy)
+                self.update_all_tables()
+                self.refresh_map()
+            else:
+                QtWidgets.QMessageBox.warning(self, "خطا", "خطا در ذخیره بویه")
     
     def edit_buoy(self, index):
         buoy = self.current_mooring.buoys[index]
         dialog = BuoyDialog(self, buoy=buoy, edit_mode=True, mooring_id=self.current_mooring.id)
         if dialog.exec_():
-            self.current_mooring.buoys[index] = dialog.buoy
-            self.update_all_tables()
-            self.refresh_map()
-            self.save_data()  # ذخیره خودکار
+            if self.db.save_buoy(dialog.buoy, self.current_mooring.id):
+                self.current_mooring.buoys[index] = dialog.buoy
+                self.update_all_tables()
+                self.refresh_map()
+            else:
+                QtWidgets.QMessageBox.warning(self, "خطا", "خطا در ویرایش بویه")
     
     def delete_buoy(self, index):
         if QtWidgets.QMessageBox.question(self, "تأیید", "آیا از حذف این بویه مطمئن هستید؟") == QtWidgets.QMessageBox.Yes:
             self.current_mooring.buoys.pop(index)
             self.update_all_tables()
             self.refresh_map()
-            self.save_data()  # ذخیره خودکار
     
     def add_anchor(self):
         if not self.current_mooring:
@@ -619,194 +640,29 @@ class FarmDesignTab(QtWidgets.QWidget):
             return
         dialog = AnchorDialog(self, edit_mode=False, mooring_id=self.current_mooring.id)
         if dialog.exec_() and dialog.anchor:
-            self.current_mooring.anchors.append(dialog.anchor)
-            self.update_all_tables()
-            self.refresh_map()
-            self.save_data()  # ذخیره خودکار
+            if self.db.save_anchor(dialog.anchor, self.current_mooring.id):
+                self.current_mooring.anchors.append(dialog.anchor)
+                self.update_all_tables()
+                self.refresh_map()
+            else:
+                QtWidgets.QMessageBox.warning(self, "خطا", "خطا در ذخیره لنگر")
     
     def edit_anchor(self, index):
         anchor = self.current_mooring.anchors[index]
         dialog = AnchorDialog(self, anchor=anchor, edit_mode=True, mooring_id=self.current_mooring.id)
         if dialog.exec_():
-            self.current_mooring.anchors[index] = dialog.anchor
-            self.update_all_tables()
-            self.refresh_map()
-            self.save_data()  # ذخیره خودکار
+            if self.db.save_anchor(dialog.anchor, self.current_mooring.id):
+                self.current_mooring.anchors[index] = dialog.anchor
+                self.update_all_tables()
+                self.refresh_map()
+            else:
+                QtWidgets.QMessageBox.warning(self, "خطا", "خطا در ویرایش لنگر")
     
     def delete_anchor(self, index):
         if QtWidgets.QMessageBox.question(self, "تأیید", "آیا از حذف این لنگر مطمئن هستید؟") == QtWidgets.QMessageBox.Yes:
             self.current_mooring.anchors.pop(index)
             self.update_all_tables()
             self.refresh_map()
-            self.save_data()  # ذخیره خودکار
-    
-    def add_chain(self):
-        if not self.current_mooring:
-            QtWidgets.QMessageBox.warning(self, "خطا", "لطفاً ابتدا یک مورینگ انتخاب کنید")
-            return
-        dialog = AddChainDialog(self, self.current_mooring.anchors, self.current_mooring.anchor_ropes, mooring_id=self.current_mooring.id)
-        if dialog.exec_() and dialog.chain:
-            self.current_mooring.anchor_chains.append(dialog.chain)
-            self.update_all_tables()
-            self.refresh_map()
-            self.save_data()  # ذخیره خودکار
-    
-    def edit_chain(self, index):
-        chain = self.current_mooring.anchor_chains[index]
-        dialog = AddChainDialog(self, self.current_mooring.anchors, self.current_mooring.anchor_ropes, chain=chain, mooring_id=self.current_mooring.id)
-        if dialog.exec_() and dialog.chain:
-            self.current_mooring.anchor_chains[index] = dialog.chain
-            self.update_all_tables()
-            self.refresh_map()
-            self.save_data()  # ذخیره خودکار
-    
-    def delete_chain(self, index):
-        if QtWidgets.QMessageBox.question(self, "تأیید", "آیا از حذف این زنجیر مطمئن هستید؟") == QtWidgets.QMessageBox.Yes:
-            self.current_mooring.anchor_chains.pop(index)
-            self.update_all_tables()
-            self.refresh_map()
-            self.save_data()  # ذخیره خودکار
-    
-    def add_rope(self):
-        if not self.current_mooring:
-            QtWidgets.QMessageBox.warning(self, "خطا", "لطفاً ابتدا یک مورینگ انتخاب کنید")
-            return
-        dialog = AddRopeDialog(self, self.current_mooring.buoys, self.current_mooring.anchor_chains, mooring_id=self.current_mooring.id)
-        if dialog.exec_() and dialog.rope:
-            self.current_mooring.anchor_ropes.append(dialog.rope)
-            self.update_all_tables()
-            self.refresh_map()
-            self.save_data()  # ذخیره خودکار
-    
-    def edit_rope(self, index):
-        rope = self.current_mooring.anchor_ropes[index]
-        dialog = AddRopeDialog(self, self.current_mooring.buoys, self.current_mooring.anchor_chains, rope=rope, mooring_id=self.current_mooring.id)
-        if dialog.exec_() and dialog.rope:
-            self.current_mooring.anchor_ropes[index] = dialog.rope
-            self.update_all_tables()
-            self.refresh_map()
-            self.save_data()  # ذخیره خودکار
-    
-    def delete_rope(self, index):
-        if QtWidgets.QMessageBox.question(self, "تأیید", "آیا از حذف این طناب مطمئن هستید؟") == QtWidgets.QMessageBox.Yes:
-            self.current_mooring.anchor_ropes.pop(index)
-            self.update_all_tables()
-            self.refresh_map()
-            self.save_data()  # ذخیره خودکار
-    
-    def add_buoy_chain(self):
-        if not self.current_mooring:
-            QtWidgets.QMessageBox.warning(self, "خطا", "لطفاً ابتدا یک مورینگ انتخاب کنید")
-            return
-        
-        current_transform = self.graphics_view.transform()
-        current_center = self.graphics_view.mapToScene(
-            self.graphics_view.viewport().rect().center()
-        )
-        
-        dialog = AddBuoyChainDialog(
-            self, 
-            self.current_mooring.buoys,
-            self.current_mooring.collectors,
-            mooring_id=self.current_mooring.id
-        )
-        if dialog.exec_() and dialog.chain:
-            self.current_mooring.buoy_chains.append(dialog.chain)
-            self.update_all_tables()
-            
-            self.graphics_view.setTransform(current_transform)
-            self.graphics_view.centerOn(current_center)
-            self.graphics_view.draw_system()
-            
-            self.refresh_map()
-            self.save_data()  # ذخیره خودکار
-    
-    def edit_buoy_chain(self, index):
-        chain = self.current_mooring.buoy_chains[index]
-        
-        current_transform = self.graphics_view.transform()
-        current_center = self.graphics_view.mapToScene(
-            self.graphics_view.viewport().rect().center()
-        )
-        
-        dialog = AddBuoyChainDialog(
-            self, 
-            self.current_mooring.buoys,
-            self.current_mooring.collectors,
-            chain=chain, 
-            mooring_id=self.current_mooring.id
-        )
-        if dialog.exec_() and dialog.chain:
-            self.current_mooring.buoy_chains[index] = dialog.chain
-            self.update_all_tables()
-            
-            self.graphics_view.setTransform(current_transform)
-            self.graphics_view.centerOn(current_center)
-            self.graphics_view.draw_system()
-            
-            self.refresh_map()
-            self.save_data()  # ذخیره خودکار
-    
-    def delete_buoy_chain(self, index):
-        if QtWidgets.QMessageBox.question(self, "تأیید", "آیا از حذف این زنجیر بویه مطمئن هستید؟") == QtWidgets.QMessageBox.Yes:
-            self.current_mooring.buoy_chains.pop(index)
-            self.update_all_tables()
-            self.refresh_map()
-            self.save_data()  # ذخیره خودکار
-    
-    def add_shackle(self):
-        if not self.current_mooring:
-            QtWidgets.QMessageBox.warning(self, "خطا", "لطفاً ابتدا یک مورینگ انتخاب کنید")
-            return
-        dialog = AddShackleDialog(self, mooring_id=self.current_mooring.id)
-        if dialog.exec_() and dialog.shackle:
-            self.current_mooring.shackles.append(dialog.shackle)
-            self.update_all_tables()
-            self.refresh_map()
-            self.save_data()  # ذخیره خودکار
-    
-    def edit_shackle(self, index):
-        shackle = self.current_mooring.shackles[index]
-        dialog = AddShackleDialog(self, shackle=shackle, mooring_id=self.current_mooring.id)
-        if dialog.exec_() and dialog.shackle:
-            self.current_mooring.shackles[index] = dialog.shackle
-            self.update_all_tables()
-            self.refresh_map()
-            self.save_data()  # ذخیره خودکار
-    
-    def delete_shackle(self, index):
-        if QtWidgets.QMessageBox.question(self, "تأیید", "آیا از حذف این شاکل مطمئن هستید؟") == QtWidgets.QMessageBox.Yes:
-            self.current_mooring.shackles.pop(index)
-            self.update_all_tables()
-            self.refresh_map()
-            self.save_data()  # ذخیره خودکار
-    
-    def add_bridle(self):
-        if not self.current_mooring:
-            QtWidgets.QMessageBox.warning(self, "خطا", "لطفاً ابتدا یک مورینگ انتخاب کنید")
-            return
-        dialog = AddBridleRopeDialog(self, self.current_mooring.buoys, mooring_id=self.current_mooring.id)
-        if dialog.exec_() and dialog.bridle:
-            self.current_mooring.bridle_ropes.append(dialog.bridle)
-            self.update_all_tables()
-            self.refresh_map()
-            self.save_data()  # ذخیره خودکار
-    
-    def edit_bridle(self, index):
-        bridle = self.current_mooring.bridle_ropes[index]
-        dialog = AddBridleRopeDialog(self, self.current_mooring.buoys, bridle=bridle, mooring_id=self.current_mooring.id)
-        if dialog.exec_() and dialog.bridle:
-            self.current_mooring.bridle_ropes[index] = dialog.bridle
-            self.update_all_tables()
-            self.refresh_map()
-            self.save_data()  # ذخیره خودکار
-    
-    def delete_bridle(self, index):
-        if QtWidgets.QMessageBox.question(self, "تأیید", "آیا از حذف این طناب برایدل مطمئن هستید؟") == QtWidgets.QMessageBox.Yes:
-            self.current_mooring.bridle_ropes.pop(index)
-            self.update_all_tables()
-            self.refresh_map()
-            self.save_data()  # ذخیره خودکار
     
     def add_cage(self):
         if not self.current_mooring:
@@ -814,26 +670,188 @@ class FarmDesignTab(QtWidgets.QWidget):
             return
         dialog = AddCageDialog(self, mooring_id=self.current_mooring.id)
         if dialog.exec_() and dialog.cage:
-            self.current_mooring.cages.append(dialog.cage)
-            self.update_all_tables()
-            self.refresh_map()
-            self.save_data()  # ذخیره خودکار
+            print(f"DEBUG: Cage ID = {dialog.cage.id}")
+            print(f"DEBUG: Mooring ID = {self.current_mooring.id}")
+            print(f"DEBUG: Cage diameter = {dialog.cage.diameter}")
+            
+            if self.db.save_cage(dialog.cage, self.current_mooring.id):
+                print("DEBUG: save_cage returned True")
+                self.current_mooring.cages.append(dialog.cage)
+                self.update_all_tables()
+                self.refresh_map()
+                QtWidgets.QMessageBox.information(self, "موفق", "قفس با موفقیت ذخیره شد")
+            else:
+                print("DEBUG: save_cage returned False")
+                QtWidgets.QMessageBox.warning(self, "خطا", "خطا در ذخیره قفس")
     
     def edit_cage(self, index):
         cage = self.current_mooring.cages[index]
         dialog = AddCageDialog(self, cage=cage, mooring_id=self.current_mooring.id)
-        if dialog.exec_() and dialog.cage:
-            self.current_mooring.cages[index] = dialog.cage
-            self.update_all_tables()
-            self.refresh_map()
-            self.save_data()  # ذخیره خودکار
+        if dialog.exec_():
+            if self.db.save_cage(dialog.cage, self.current_mooring.id):
+                self.current_mooring.cages[index] = dialog.cage
+                self.update_all_tables()
+                self.refresh_map()
+            else:
+                QtWidgets.QMessageBox.warning(self, "خطا", "خطا در ویرایش قفس")
     
     def delete_cage(self, index):
-        if QtWidgets.QMessageBox.question(self, "تأیید", "آیا از حذف این قفس مطمئن هستید؟") == QtWidgets.QMessageBox.Yes:
+        if QtWidgets.QMessageBox.question(self, "تأیید", "آیا از حذف این قفس مطمئن هستید？") == QtWidgets.QMessageBox.Yes:
             self.current_mooring.cages.pop(index)
             self.update_all_tables()
             self.refresh_map()
-            self.save_data()  # ذخیره خودکار
+    
+    # ==================== سایر اجزا (به همین الگو) ====================
+    
+    def add_chain(self):
+        if not self.current_mooring:
+            QtWidgets.QMessageBox.warning(self, "خطا", "لطفاً ابتدا یک مورینگ انتخاب کنید")
+            return
+        dialog = AddChainDialog(self, self.current_mooring.anchors, self.current_mooring.anchor_ropes, mooring_id=self.current_mooring.id)
+        if dialog.exec_() and dialog.chain:
+            if self.db.save_anchor_chain(dialog.chain, self.current_mooring.id):
+                self.current_mooring.anchor_chains.append(dialog.chain)
+                self.update_all_tables()
+                self.refresh_map()
+            else:
+                QtWidgets.QMessageBox.warning(self, "خطا", "خطا در ذخیره زنجیر")
+    
+    def edit_chain(self, index):
+        chain = self.current_mooring.anchor_chains[index]
+        dialog = AddChainDialog(self, self.current_mooring.anchors, self.current_mooring.anchor_ropes, chain=chain, mooring_id=self.current_mooring.id)
+        if dialog.exec_() and dialog.chain:
+            if self.db.save_anchor_chain(dialog.chain, self.current_mooring.id):
+                self.current_mooring.anchor_chains[index] = dialog.chain
+                self.update_all_tables()
+                self.refresh_map()
+            else:
+                QtWidgets.QMessageBox.warning(self, "خطا", "خطا در ویرایش زنجیر")
+    
+    def delete_chain(self, index):
+        if QtWidgets.QMessageBox.question(self, "تأیید", "آیا از حذف این زنجیر مطمئن هستید؟") == QtWidgets.QMessageBox.Yes:
+            self.current_mooring.anchor_chains.pop(index)
+            self.update_all_tables()
+            self.refresh_map()
+    
+    def add_rope(self):
+        if not self.current_mooring:
+            QtWidgets.QMessageBox.warning(self, "خطا", "لطفاً ابتدا یک مورینگ انتخاب کنید")
+            return
+        dialog = AddRopeDialog(self, self.current_mooring.buoys, self.current_mooring.anchor_chains, mooring_id=self.current_mooring.id)
+        if dialog.exec_() and dialog.rope:
+            if self.db.save_anchor_rope(dialog.rope, self.current_mooring.id):
+                self.current_mooring.anchor_ropes.append(dialog.rope)
+                self.update_all_tables()
+                self.refresh_map()
+            else:
+                QtWidgets.QMessageBox.warning(self, "خطا", "خطا در ذخیره طناب")
+    
+    def edit_rope(self, index):
+        rope = self.current_mooring.anchor_ropes[index]
+        dialog = AddRopeDialog(self, self.current_mooring.buoys, self.current_mooring.anchor_chains, rope=rope, mooring_id=self.current_mooring.id)
+        if dialog.exec_() and dialog.rope:
+            if self.db.save_anchor_rope(dialog.rope, self.current_mooring.id):
+                self.current_mooring.anchor_ropes[index] = dialog.rope
+                self.update_all_tables()
+                self.refresh_map()
+            else:
+                QtWidgets.QMessageBox.warning(self, "خطا", "خطا در ویرایش طناب")
+    
+    def delete_rope(self, index):
+        if QtWidgets.QMessageBox.question(self, "تأیید", "آیا از حذف این طناب مطمئن هستید؟") == QtWidgets.QMessageBox.Yes:
+            self.current_mooring.anchor_ropes.pop(index)
+            self.update_all_tables()
+            self.refresh_map()
+    
+    def add_buoy_chain(self):
+        if not self.current_mooring:
+            QtWidgets.QMessageBox.warning(self, "خطا", "لطفاً ابتدا یک مورینگ انتخاب کنید")
+            return
+        dialog = AddBuoyChainDialog(self, self.current_mooring.buoys, self.current_mooring.collectors, mooring_id=self.current_mooring.id)
+        if dialog.exec_() and dialog.chain:
+            if self.db.save_buoy_chain(dialog.chain, self.current_mooring.id):
+                self.current_mooring.buoy_chains.append(dialog.chain)
+                self.update_all_tables()
+                self.refresh_map()
+            else:
+                QtWidgets.QMessageBox.warning(self, "خطا", "خطا در ذخیره زنجیر بویه")
+    
+    def edit_buoy_chain(self, index):
+        chain = self.current_mooring.buoy_chains[index]
+        dialog = AddBuoyChainDialog(self, self.current_mooring.buoys, self.current_mooring.collectors, chain=chain, mooring_id=self.current_mooring.id)
+        if dialog.exec_() and dialog.chain:
+            if self.db.save_buoy_chain(dialog.chain, self.current_mooring.id):
+                self.current_mooring.buoy_chains[index] = dialog.chain
+                self.update_all_tables()
+                self.refresh_map()
+            else:
+                QtWidgets.QMessageBox.warning(self, "خطا", "خطا در ویرایش زنجیر بویه")
+    
+    def delete_buoy_chain(self, index):
+        if QtWidgets.QMessageBox.question(self, "تأیید", "آیا از حذف این زنجیر بویه مطمئن هستید؟") == QtWidgets.QMessageBox.Yes:
+            self.current_mooring.buoy_chains.pop(index)
+            self.update_all_tables()
+            self.refresh_map()
+    
+    def add_shackle(self):
+        if not self.current_mooring:
+            QtWidgets.QMessageBox.warning(self, "خطا", "لطفاً ابتدا یک مورینگ انتخاب کنید")
+            return
+        dialog = AddShackleDialog(self, mooring_id=self.current_mooring.id)
+        if dialog.exec_() and dialog.shackle:
+            if self.db.save_shackle(dialog.shackle, self.current_mooring.id):
+                self.current_mooring.shackles.append(dialog.shackle)
+                self.update_all_tables()
+                self.refresh_map()
+            else:
+                QtWidgets.QMessageBox.warning(self, "خطا", "خطا در ذخیره شاکل")
+    
+    def edit_shackle(self, index):
+        shackle = self.current_mooring.shackles[index]
+        dialog = AddShackleDialog(self, shackle=shackle, mooring_id=self.current_mooring.id)
+        if dialog.exec_() and dialog.shackle:
+            if self.db.save_shackle(dialog.shackle, self.current_mooring.id):
+                self.current_mooring.shackles[index] = dialog.shackle
+                self.update_all_tables()
+                self.refresh_map()
+            else:
+                QtWidgets.QMessageBox.warning(self, "خطا", "خطا در ویرایش شاکل")
+    
+    def delete_shackle(self, index):
+        if QtWidgets.QMessageBox.question(self, "تأیید", "آیا از حذف این شاکل مطمئن هستید؟") == QtWidgets.QMessageBox.Yes:
+            self.current_mooring.shackles.pop(index)
+            self.update_all_tables()
+            self.refresh_map()
+    
+    def add_bridle(self):
+        if not self.current_mooring:
+            QtWidgets.QMessageBox.warning(self, "خطا", "لطفاً ابتدا یک مورینگ انتخاب کنید")
+            return
+        dialog = AddBridleRopeDialog(self, self.current_mooring.buoys, mooring_id=self.current_mooring.id)
+        if dialog.exec_() and dialog.bridle:
+            if self.db.save_bridle_rope(dialog.bridle, self.current_mooring.id):
+                self.current_mooring.bridle_ropes.append(dialog.bridle)
+                self.update_all_tables()
+                self.refresh_map()
+            else:
+                QtWidgets.QMessageBox.warning(self, "خطا", "خطا در ذخیره طناب برایدل")
+    
+    def edit_bridle(self, index):
+        bridle = self.current_mooring.bridle_ropes[index]
+        dialog = AddBridleRopeDialog(self, self.current_mooring.buoys, bridle=bridle, mooring_id=self.current_mooring.id)
+        if dialog.exec_() and dialog.bridle:
+            if self.db.save_bridle_rope(dialog.bridle, self.current_mooring.id):
+                self.current_mooring.bridle_ropes[index] = dialog.bridle
+                self.update_all_tables()
+                self.refresh_map()
+            else:
+                QtWidgets.QMessageBox.warning(self, "خطا", "خطا در ویرایش طناب برایدل")
+    
+    def delete_bridle(self, index):
+        if QtWidgets.QMessageBox.question(self, "تأیید", "آیا از حذف این طناب برایدل مطمئن هستید؟") == QtWidgets.QMessageBox.Yes:
+            self.current_mooring.bridle_ropes.pop(index)
+            self.update_all_tables()
+            self.refresh_map()
     
     def add_net(self):
         if not self.current_mooring:
@@ -841,26 +859,29 @@ class FarmDesignTab(QtWidgets.QWidget):
             return
         dialog = AddNetDialog(self, self.current_mooring.cages, mooring_id=self.current_mooring.id)
         if dialog.exec_() and dialog.net:
-            self.current_mooring.nets.append(dialog.net)
-            self.update_all_tables()
-            self.refresh_map()
-            self.save_data()  # ذخیره خودکار
+            if self.db.save_net(dialog.net, self.current_mooring.id):
+                self.current_mooring.nets.append(dialog.net)
+                self.update_all_tables()
+                self.refresh_map()
+            else:
+                QtWidgets.QMessageBox.warning(self, "خطا", "خطا در ذخیره تور")
     
     def edit_net(self, index):
         net = self.current_mooring.nets[index]
         dialog = AddNetDialog(self, self.current_mooring.cages, net=net, mooring_id=self.current_mooring.id)
         if dialog.exec_() and dialog.net:
-            self.current_mooring.nets[index] = dialog.net
-            self.update_all_tables()
-            self.refresh_map()
-            self.save_data()  # ذخیره خودکار
+            if self.db.save_net(dialog.net, self.current_mooring.id):
+                self.current_mooring.nets[index] = dialog.net
+                self.update_all_tables()
+                self.refresh_map()
+            else:
+                QtWidgets.QMessageBox.warning(self, "خطا", "خطا در ویرایش تور")
     
     def delete_net(self, index):
         if QtWidgets.QMessageBox.question(self, "تأیید", "آیا از حذف این تور مطمئن هستید؟") == QtWidgets.QMessageBox.Yes:
             self.current_mooring.nets.pop(index)
             self.update_all_tables()
             self.refresh_map()
-            self.save_data()  # ذخیره خودکار
     
     def add_collector(self):
         if not self.current_mooring:
@@ -868,28 +889,32 @@ class FarmDesignTab(QtWidgets.QWidget):
             return
         dialog = AddCollectorDialog(self, self.current_mooring.buoys, mooring_id=self.current_mooring.id)
         if dialog.exec_() and dialog.collector:
-            self.current_mooring.collectors.append(dialog.collector)
-            self.update_all_tables()
-            self.refresh_map()
-            self.save_data()  # ذخیره خودکار
+            if self.db.save_collector(dialog.collector, self.current_mooring.id):
+                self.current_mooring.collectors.append(dialog.collector)
+                self.update_all_tables()
+                self.refresh_map()
+            else:
+                QtWidgets.QMessageBox.warning(self, "خطا", "خطا در ذخیره کلکتور")
     
     def edit_collector(self, index):
         collector = self.current_mooring.collectors[index]
         dialog = AddCollectorDialog(self, self.current_mooring.buoys, collector=collector, mooring_id=self.current_mooring.id)
         if dialog.exec_() and dialog.collector:
-            self.current_mooring.collectors[index] = dialog.collector
-            self.update_all_tables()
-            self.refresh_map()
-            self.save_data()  # ذخیره خودکار
+            if self.db.save_collector(dialog.collector, self.current_mooring.id):
+                self.current_mooring.collectors[index] = dialog.collector
+                self.update_all_tables()
+                self.refresh_map()
+            else:
+                QtWidgets.QMessageBox.warning(self, "خطا", "خطا در ویرایش کلکتور")
     
     def delete_collector(self, index):
         if QtWidgets.QMessageBox.question(self, "تأیید", "آیا از حذف این کلکتور مطمئن هستید؟") == QtWidgets.QMessageBox.Yes:
             self.current_mooring.collectors.pop(index)
             self.update_all_tables()
             self.refresh_map()
-            self.save_data()  # ذخیره خودکار
     
     # ==================== توابع آپدیت جدول‌ها ====================
+    
     def update_all_tables(self):
         if not self.current_mooring:
             self.clear_all_tables()
@@ -908,6 +933,13 @@ class FarmDesignTab(QtWidgets.QWidget):
             self.anchor_table.setItem(i, 0, QtWidgets.QTableWidgetItem(a.id))
             btn_widget = self.create_action_buttons(partial(self.edit_anchor, i), partial(self.delete_anchor, i))
             self.anchor_table.setCellWidget(i, 1, btn_widget)
+        
+        # قفس‌ها
+        self.cage_table.setRowCount(len(self.current_mooring.cages))
+        for i, cg in enumerate(self.current_mooring.cages):
+            self.cage_table.setItem(i, 0, QtWidgets.QTableWidgetItem(cg.id))
+            btn_widget = self.create_action_buttons(partial(self.edit_cage, i), partial(self.delete_cage, i))
+            self.cage_table.setCellWidget(i, 1, btn_widget)
         
         # زنجیرها
         self.chain_table.setRowCount(len(self.current_mooring.anchor_chains))
@@ -947,13 +979,6 @@ class FarmDesignTab(QtWidgets.QWidget):
             btn_widget = self.create_action_buttons(partial(self.edit_bridle, i), partial(self.delete_bridle, i))
             self.bridle_table.setCellWidget(i, 1, btn_widget)
         
-        # قفس
-        self.cage_table.setRowCount(len(self.current_mooring.cages))
-        for i, cg in enumerate(self.current_mooring.cages):
-            self.cage_table.setItem(i, 0, QtWidgets.QTableWidgetItem(cg.id))
-            btn_widget = self.create_action_buttons(partial(self.edit_cage, i), partial(self.delete_cage, i))
-            self.cage_table.setCellWidget(i, 1, btn_widget)
-        
         # تور
         self.net_table.setRowCount(len(self.current_mooring.nets))
         for i, nt in enumerate(self.current_mooring.nets):
@@ -981,262 +1006,3 @@ class FarmDesignTab(QtWidgets.QWidget):
         self.cage_table.setRowCount(0)
         self.net_table.setRowCount(0)
         self.collector_table.setRowCount(0)
-    
-    # ==================== توابع ذخیره و بارگذاری ====================
-    def save_data(self):
-        """ذخیره داده‌ها در فایل JSON (خودکار بعد از هر تغییر)"""
-        try:
-            data = []
-            for farm in self.farms:
-                farm_data = {
-                    "id": farm.id, "name": farm.name, 
-                    "center_x": farm.center_x, "center_y": farm.center_y, 
-                    "moorings": []
-                }
-                for mooring in farm.moorings:
-                    mooring_data = {
-                        "id": mooring.id, "name": mooring.name,
-                        "buoys": [{"id": b.id, "buoy_type": b.buoy_type, "utm_x": b.utm_x, "utm_y": b.utm_y, 
-                                  "color": b.color, "material": b.material, "volume": b.volume, 
-                                  "install_date": b.install_date, "has_light": b.has_light, 
-                                  "body_color": b.body_color, "status": b.status, "note": b.note} for b in mooring.buoys],
-                        "anchors": [{"id": a.id, "anchor_type": a.anchor_type, "utm_x": a.utm_x, "utm_y": a.utm_y, 
-                                    "weight": a.weight, "color": a.color, "material": a.material, 
-                                    "install_date": a.install_date, "install_depth": a.install_depth, 
-                                    "status": a.status, "body_color": a.body_color, "note": a.note} for a in mooring.anchors],
-                        "anchor_chains": [{"id": c.id, "start_id": c.start_id, "end_id": c.end_id, "diameter": c.diameter,
-                                    "use_manual_start": c.use_manual_start, "start_x": c.start_x, "start_y": c.start_y,
-                                    "use_manual_end": c.use_manual_end, "end_x": c.end_x, "end_y": c.end_y, 
-                                    "color": c.color, "chain_type": c.chain_type, "material": c.material,
-                                    "install_date": c.install_date, "status": c.status, "note": c.note} for c in mooring.anchor_chains],
-                        "anchor_ropes": [{"id": r.id, "start_id": r.start_id, "end_id": r.end_id, "material": r.material, 
-                                        "diameter": r.diameter,
-                                        "use_manual_start": r.use_manual_start, "start_x": r.start_x, "start_y": r.start_y,
-                                        "use_manual_end": r.use_manual_end, "end_x": r.end_x, "end_y": r.end_y, 
-                                        "color": r.color, "strand_count": r.strand_count, "length": r.length,
-                                        "install_date": r.install_date, "status": r.status, "note": r.note} for r in mooring.anchor_ropes],
-                        "buoy_chains": [{"id": bc.id, "diameter": bc.diameter, "length": bc.length, 
-                                        "material": bc.material, "chain_type": bc.chain_type,
-                                        "install_date": bc.install_date, "status": bc.status, 
-                                        "buoy_id": bc.buoy_id, "collector_id": bc.collector_id, "note": bc.note} for bc in mooring.buoy_chains],
-                        "shackles": [{"id": sh.id, "shackle_type": sh.shackle_type, "quantity": sh.quantity,
-                                    "size": sh.size, "capacity": sh.capacity, "material": sh.material, 
-                                    "connected_id": sh.connected_id, "install_date": sh.install_date, 
-                                    "status": sh.status, "note": sh.note} for sh in mooring.shackles],
-                        "bridle_ropes": [{"id": br.id, "diameter": br.diameter, "length": br.length, 
-                                        "material": br.material, "strand_count": br.strand_count,
-                                        "install_date": br.install_date, "status": br.status,
-                                        "cage_x": br.cage_x, "cage_y": br.cage_y,
-                                        "buoy_id": br.buoy_id, "color": br.color, "note": br.note} for br in mooring.bridle_ropes],
-                        "cages": [{"id": cg.id, "diameter": cg.diameter, "material": cg.material,
-                                  "install_date": cg.install_date, "status": cg.status,
-                                  "utm_x": cg.utm_x, "utm_y": cg.utm_y, "color": cg.color, "note": cg.note} for cg in mooring.cages],
-                        "nets": [{"id": n.id, "cage_id": n.cage_id, "diameter": n.diameter,
-                                 "mesh_size": n.mesh_size, "material": n.material, "depth": n.depth,
-                                 "install_date": n.install_date, "status": n.status, "note": n.note} for n in mooring.nets],
-                        "collectors": [{"id": col.id, "diameter": col.diameter, "thickness": col.thickness,
-                                       "depth": col.depth, "material": col.material,
-                                       "install_date": col.install_date, "status": col.status,
-                                       "buoy_id": col.buoy_id, "color": col.color, "note": col.note} for col in mooring.collectors]
-                    }
-                    farm_data["moorings"].append(mooring_data)
-                data.append(farm_data)
-            
-            with open(self.data_file, "w", encoding="utf-8") as f:
-                json.dump(data, f, indent=2, ensure_ascii=False)
-            print("داده‌ها با موفقیت ذخیره شد")
-        except Exception as e:
-            print(f"خطا در ذخیره داده‌ها: {e}")
-    
-    def load_data(self):
-        """بارگذاری داده‌ها از فایل JSON (به صورت خودکار هنگام اجرا)"""
-        try:
-            if not os.path.exists(self.data_file):
-                print("فایل داده‌ها وجود ندارد، شروع با داده‌های خالی")
-                return
-            
-            with open(self.data_file, "r", encoding="utf-8") as f:
-                data = json.load(f)
-            
-            self.farms = []
-            for farm_data in data:
-                farm = Farm(farm_data["id"], farm_data["name"], farm_data["center_x"], farm_data["center_y"])
-                for mooring_data in farm_data["moorings"]:
-                    mooring = Mooring(mooring_data["id"], mooring_data["name"])
-                    
-                    for b in mooring_data["buoys"]:
-                        buoy = Buoy()
-                        buoy.id = b["id"]
-                        buoy.mooring_id = mooring.id
-                        buoy.buoy_type = b["buoy_type"]
-                        buoy.utm_x = b["utm_x"]
-                        buoy.utm_y = b["utm_y"]
-                        buoy.color = b.get("color", "#A0A0A0")
-                        buoy.material = b.get("material", "پلاستیک")
-                        buoy.volume = b.get("volume", 0)
-                        buoy.install_date = b.get("install_date", "")
-                        buoy.has_light = b.get("has_light", False)
-                        buoy.body_color = b.get("body_color", "#A0A0A0")
-                        buoy.status = b.get("status", "سالم")
-                        buoy.note = b.get("note", "")
-                        mooring.buoys.append(buoy)
-                    
-                    for a in mooring_data["anchors"]:
-                        anchor = Anchor()
-                        anchor.id = a["id"]
-                        anchor.mooring_id = mooring.id
-                        anchor.anchor_type = a["anchor_type"]
-                        anchor.utm_x = a["utm_x"]
-                        anchor.utm_y = a["utm_y"]
-                        anchor.weight = a["weight"]
-                        anchor.color = a.get("color", "#6A9955")
-                        anchor.material = a.get("material", "فولاد")
-                        anchor.install_date = a.get("install_date", "")
-                        anchor.install_depth = a.get("install_depth", 0)
-                        anchor.status = a.get("status", "سالم")
-                        anchor.body_color = a.get("body_color", "#6A9955")
-                        anchor.note = a.get("note", "")
-                        mooring.anchors.append(anchor)
-                    
-                    for c in mooring_data["anchor_chains"]:
-                        chain = AnchorChain()
-                        chain.id = c["id"]
-                        chain.mooring_id = mooring.id
-                        chain.start_id = c["start_id"]
-                        chain.end_id = c["end_id"]
-                        chain.diameter = c["diameter"]
-                        chain.use_manual_start = c["use_manual_start"]
-                        chain.start_x = c["start_x"]
-                        chain.start_y = c["start_y"]
-                        chain.use_manual_end = c["use_manual_end"]
-                        chain.end_x = c["end_x"]
-                        chain.end_y = c["end_y"]
-                        chain.color = c.get("color", "#C58688")
-                        chain.chain_type = c.get("chain_type", "ساده")
-                        chain.material = c.get("material", "فولاد")
-                        chain.install_date = c.get("install_date", "")
-                        chain.status = c.get("status", "سالم")
-                        chain.note = c.get("note", "")
-                        mooring.anchor_chains.append(chain)
-                    
-                    for r in mooring_data["anchor_ropes"]:
-                        rope = AnchorRope()
-                        rope.id = r["id"]
-                        rope.mooring_id = mooring.id
-                        rope.start_id = r["start_id"]
-                        rope.end_id = r["end_id"]
-                        rope.material = r["material"]
-                        rope.diameter = r["diameter"]
-                        rope.use_manual_start = r["use_manual_start"]
-                        rope.start_x = r["start_x"]
-                        rope.start_y = r["start_y"]
-                        rope.use_manual_end = r["use_manual_end"]
-                        rope.end_x = r["end_x"]
-                        rope.end_y = r["end_y"]
-                        rope.color = r.get("color", "#C8C8C8")
-                        rope.strand_count = r.get("strand_count", 3)
-                        rope.length = r.get("length", 50)
-                        rope.install_date = r.get("install_date", "")
-                        rope.status = r.get("status", "سالم")
-                        rope.note = r.get("note", "")
-                        mooring.anchor_ropes.append(rope)
-                    
-                    for bc in mooring_data.get("buoy_chains", []):
-                        buoy_chain = BuoyChain()
-                        buoy_chain.id = bc["id"]
-                        buoy_chain.mooring_id = mooring.id
-                        buoy_chain.diameter = bc.get("diameter", 20)
-                        buoy_chain.length = bc.get("length", 10)
-                        buoy_chain.material = bc.get("material", "فولاد")
-                        buoy_chain.chain_type = bc.get("chain_type", "ساده")
-                        buoy_chain.install_date = bc.get("install_date", "")
-                        buoy_chain.status = bc.get("status", "سالم")
-                        buoy_chain.buoy_id = bc.get("buoy_id", "")
-                        buoy_chain.collector_id = bc.get("collector_id", "")
-                        buoy_chain.note = bc.get("note", "")
-                        mooring.buoy_chains.append(buoy_chain)
-                    
-                    for sh in mooring_data.get("shackles", []):
-                        shackle = Shackle()
-                        shackle.id = sh["id"]
-                        shackle.mooring_id = mooring.id
-                        shackle.shackle_type = sh.get("shackle_type", "یو شکل")
-                        shackle.quantity = sh.get("quantity", 1)
-                        shackle.size = sh.get("size", 25)
-                        shackle.capacity = sh.get("capacity", 5.0)
-                        shackle.material = sh.get("material", "فولاد")
-                        shackle.connected_id = sh.get("connected_id", "")
-                        shackle.install_date = sh.get("install_date", "")
-                        shackle.status = sh.get("status", "سالم")
-                        shackle.note = sh.get("note", "")
-                        mooring.shackles.append(shackle)
-                    
-                    for br in mooring_data.get("bridle_ropes", []):
-                        bridle = BridleRope()
-                        bridle.id = br["id"]
-                        bridle.mooring_id = mooring.id
-                        bridle.diameter = br.get("diameter", 40)
-                        bridle.length = br.get("length", 15.0)
-                        bridle.material = br.get("material", "پلی پروپیلن")
-                        bridle.strand_count = br.get("strand_count", 3)
-                        bridle.install_date = br.get("install_date", "")
-                        bridle.status = br.get("status", "سالم")
-                        bridle.cage_x = br.get("cage_x", 0)
-                        bridle.cage_y = br.get("cage_y", 0)
-                        bridle.buoy_id = br.get("buoy_id", "")
-                        bridle.color = br.get("color", "#D4A574")
-                        bridle.note = br.get("note", "")
-                        mooring.bridle_ropes.append(bridle)
-                    
-                    for cg in mooring_data.get("cages", []):
-                        cage = Cage()
-                        cage.id = cg["id"]
-                        cage.mooring_id = mooring.id
-                        cage.diameter = cg.get("diameter", 10.0)
-                        cage.material = cg.get("material", "فولاد")
-                        cage.install_date = cg.get("install_date", "")
-                        cage.status = cg.get("status", "سالم")
-                        cage.utm_x = cg.get("utm_x", 0)
-                        cage.utm_y = cg.get("utm_y", 0)
-                        cage.color = cg.get("color", "#569CD6")
-                        cage.note = cg.get("note", "")
-                        mooring.cages.append(cage)
-                    
-                    for n in mooring_data.get("nets", []):
-                        net = Net()
-                        net.id = n["id"]
-                        net.mooring_id = mooring.id
-                        net.cage_id = n.get("cage_id", "")
-                        net.diameter = n.get("diameter", 10)
-                        net.mesh_size = n.get("mesh_size", 50)
-                        net.material = n.get("material", "داینما")
-                        net.depth = n.get("depth", 4.0)
-                        net.install_date = n.get("install_date", "")
-                        net.status = n.get("status", "سالم")
-                        net.note = n.get("note", "")
-                        mooring.nets.append(net)
-                    
-                    for col in mooring_data.get("collectors", []):
-                        collector = Collector()
-                        collector.id = col["id"]
-                        collector.mooring_id = mooring.id
-                        collector.diameter = col.get("diameter", 1.0)
-                        collector.thickness = col.get("thickness", 10)
-                        collector.depth = col.get("depth", 12.0)
-                        collector.material = col.get("material", "فولاد")
-                        collector.install_date = col.get("install_date", "")
-                        collector.status = col.get("status", "سالم")
-                        collector.buoy_id = col.get("buoy_id", "")
-                        collector.color = col.get("color", "#CE9178")
-                        collector.note = col.get("note", "")
-                        mooring.collectors.append(collector)
-                    
-                    farm.moorings.append(mooring)
-                self.farms.append(farm)
-            
-            self.update_farm_combo()
-            if self.farm_combo.count() > 0:
-                self.on_farm_selected(0)
-            print("داده‌ها با موفقیت بارگذاری شد")
-        except Exception as e:
-            print(f"خطا در بارگذاری داده‌ها: {e}")

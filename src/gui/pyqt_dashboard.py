@@ -21,7 +21,6 @@ class PyQtDashboard(QtWidgets.QWidget):
         self.biomasses = []
         self.data_file = "aquaculture_data.json"
         
-        # تنظیم استایل pyqtgraph
         pg.setConfigOptions(antialias=True)
         pg.setConfigOption('background', '#2D2D30')
         pg.setConfigOption('foreground', '#C8C8C8')
@@ -34,9 +33,9 @@ class PyQtDashboard(QtWidgets.QWidget):
         self.current_mooring = mooring
         self.load_data()
         self.update_cage_list()
+        self.update_all_charts()
     
     def load_data(self):
-        """بارگذاری داده‌ها از فایل JSON"""
         self.feeds = []
         self.mortalities = []
         self.water_parameters = []
@@ -82,13 +81,30 @@ class PyQtDashboard(QtWidgets.QWidget):
         title.setStyleSheet("font-size: 18px; font-weight: bold; color: #569CD6; padding: 10px;")
         layout.addWidget(title)
         
-        # کنترل‌ها
         controls_layout = QtWidgets.QHBoxLayout()
-        controls_layout.addWidget(QtWidgets.QLabel("انتخاب قفس:"))
+        
+        cage_label = QtWidgets.QLabel("انتخاب قفس:")
+        cage_label.setStyleSheet("color: #C8C8C8; font-weight: bold;")
+        controls_layout.addWidget(cage_label)
+        
         self.cage_combo = QtWidgets.QComboBox()
         self.cage_combo.setMinimumWidth(150)
+        self.cage_combo.setStyleSheet("""
+            QComboBox {
+                background-color: #3C3C3C;
+                color: #C8C8C8;
+                border: 1px solid #3E3E42;
+                border-radius: 4px;
+                padding: 4px 8px;
+            }
+            QComboBox:hover {
+                border-color: #569CD6;
+            }
+        """)
         self.cage_combo.currentIndexChanged.connect(self.on_cage_changed)
         controls_layout.addWidget(self.cage_combo)
+        
+        controls_layout.addSpacing(20)
         
         self.refresh_btn = QtWidgets.QPushButton("🔄 به‌روزرسانی")
         self.refresh_btn.setStyleSheet("""
@@ -105,10 +121,10 @@ class PyQtDashboard(QtWidgets.QWidget):
         """)
         self.refresh_btn.clicked.connect(self.on_refresh_clicked)
         controls_layout.addWidget(self.refresh_btn)
+        
         controls_layout.addStretch()
         layout.addLayout(controls_layout)
         
-        # تب‌ها
         self.tabs = QtWidgets.QTabWidget()
         self.tabs.setStyleSheet("""
             QTabWidget::pane {
@@ -129,19 +145,15 @@ class PyQtDashboard(QtWidgets.QWidget):
             }
         """)
         
-        # تب رشد
         self.growth_tab = self.create_growth_tab()
         self.tabs.addTab(self.growth_tab, "📈 رشد و زیست‌توده")
         
-        # تب خوراک
         self.feed_tab = self.create_feed_tab()
         self.tabs.addTab(self.feed_tab, "🍽️ خوراک و FCR")
         
-        # تب تلفات
         self.mortality_tab = self.create_mortality_tab()
         self.tabs.addTab(self.mortality_tab, "⚠️ تلفات")
         
-        # تب پارامترهای آب
         self.water_tab = self.create_water_tab()
         self.tabs.addTab(self.water_tab, "💧 پارامترهای آب")
         
@@ -150,50 +162,31 @@ class PyQtDashboard(QtWidgets.QWidget):
         self.update_cage_list()
     
     def on_refresh_clicked(self):
-        """دکمه به‌روزرسانی"""
-        print("DEBUG: Refresh button clicked")
         self.load_data()
+        self.update_cage_list()
         self.update_all_charts()
         QtWidgets.QMessageBox.information(self, "به‌روزرسانی", "داده‌ها با موفقیت به‌روزرسانی شدند")
     
     def on_cage_changed(self):
-        """تغییر قفس"""
-        print("DEBUG: Cage changed")
         self.update_all_charts()
     
     def update_cage_list(self):
         self.cage_combo.clear()
+        
         if self.current_mooring and hasattr(self.current_mooring, 'cages'):
             for cage in self.current_mooring.cages:
-                self.cage_combo.addItem(f"قفس {cage.id}", cage.id)
+                self.cage_combo.addItem(cage.id, cage.id)
             if self.cage_combo.count() > 0:
                 self.cage_combo.setCurrentIndex(0)
-                self.update_all_charts()
     
     def get_cage_data(self):
         selected_cage = self.cage_combo.currentData()
         
-        cage_biomasses = []
-        for b in self.biomasses:
-            if b.get('cage_id') == selected_cage:
-                cage_biomasses.append(b)
+        cage_biomasses = [b for b in self.biomasses if b.get('cage_id') == selected_cage]
+        cage_feeds = [f for f in self.feeds if f.get('cage_id') == selected_cage]
+        cage_mortalities = [m for m in self.mortalities if m.get('cage_id') == selected_cage]
+        cage_water = [w for w in self.water_parameters if w.get('cage_id') == selected_cage]
         
-        cage_feeds = []
-        for f in self.feeds:
-            if f.get('cage_id') == selected_cage:
-                cage_feeds.append(f)
-        
-        cage_mortalities = []
-        for m in self.mortalities:
-            if m.get('cage_id') == selected_cage:
-                cage_mortalities.append(m)
-        
-        cage_water = []
-        for w in self.water_parameters:
-            if w.get('cage_id') == selected_cage:
-                cage_water.append(w)
-        
-        # مرتب‌سازی بر اساس تاریخ
         cage_biomasses.sort(key=lambda x: x.get('date', ''))
         cage_feeds.sort(key=lambda x: x.get('date', ''))
         cage_mortalities.sort(key=lambda x: x.get('date', ''))
@@ -292,14 +285,13 @@ class PyQtDashboard(QtWidgets.QWidget):
         return tab
     
     def update_all_charts(self):
-        """به‌روزرسانی همه نمودارها"""
-        print("DEBUG: update_all_charts called")
         if not self.current_farm or not self.current_mooring:
-            print("DEBUG: No farm or mooring selected")
+            return
+        
+        if self.cage_combo.count() == 0:
             return
         
         biomasses, feeds, mortalities, water_params = self.get_cage_data()
-        print(f"DEBUG: biomasses={len(biomasses)}, feeds={len(feeds)}, mortalities={len(mortalities)}")
         
         self.update_growth_chart(biomasses)
         self.update_feed_chart(feeds, biomasses)
@@ -310,57 +302,42 @@ class PyQtDashboard(QtWidgets.QWidget):
         self.growth_plot.clear()
         
         if not biomasses:
-            self.growth_plot.setTitle('داده‌ای برای نمایش وجود ندارد - لطفاً در تب زیست‌توده ثبت کنید')
+            self.growth_plot.setTitle('داده‌ای برای نمایش وجود ندارد')
             return
         
         dates = [b.get('date', '') for b in biomasses]
         weights = [b.get('estimated_weight', 0) for b in biomasses]
         counts = [b.get('estimated_count', 0) for b in biomasses]
         
-        # استفاده از اندیس به جای تاریخ برای محور x
-        x = list(range(len(dates)))
-        
         # رسم خط وزن
-        self.growth_plot.plot(x, weights, pen=pg.mkPen(color='#569CD6', width=3), symbol='o', symbolBrush='#569CD6')
-        
-        # تنظیم برچسب‌های محور x با تاریخ شمسی
-        ticks = [[(i, dates[i]) for i in range(len(dates))]]
-        self.growth_plot.getAxis('bottom').setTicks(ticks)
-        
-        # محاسبه زیست‌توده
-        total_biomass = [(w * c) / 1000 for w, c in zip(weights, counts)]
+        self.growth_plot.plot(dates, weights, pen=pg.mkPen(color='#569CD6', width=3), symbol='o', symbolBrush='#569CD6')
         
         # آمار
-        self.avg_weight_label.setText(f"میانگین وزن: {sum(weights)/len(weights):.0f} گرم")
-        self.max_weight_label.setText(f"حداکثر وزن: {max(weights):.0f} گرم")
+        if weights:
+            self.avg_weight_label.setText(f"میانگین وزن: {sum(weights)/len(weights):.0f} گرم")
+            self.max_weight_label.setText(f"حداکثر وزن: {max(weights):.0f} گرم")
         
         if len(weights) > 1:
-            daily_gain = (weights[-1] - weights[0]) / len(weights) if len(weights) > 0 else 0
+            daily_gain = (weights[-1] - weights[0]) / len(weights)
             self.daily_gain_label.setText(f"رشد روزانه: {daily_gain:.1f} گرم")
         
-        if total_biomass:
-            self.biomass_label.setText(f"زیست‌توده: {total_biomass[-1]:.0f} kg")
+        if counts and weights:
+            total_biomass = (weights[-1] * counts[-1]) / 1000 if counts and weights else 0
+            self.biomass_label.setText(f"زیست‌توده: {total_biomass:.0f} kg")
     
     def update_feed_chart(self, feeds, biomasses):
         self.feed_plot.clear()
         
         if not feeds:
-            self.feed_plot.setTitle('داده‌ای برای نمایش وجود ندارد - لطفاً در تب تغذیه ثبت کنید')
+            self.feed_plot.setTitle('داده‌ای برای نمایش وجود ندارد')
             return
         
         dates = [f.get('date', '') for f in feeds]
         amounts = [f.get('feed_amount', 0) for f in feeds]
         
-        # استفاده از اندیس به جای تاریخ
-        x = list(range(len(dates)))
-        
         # نمودار میله‌ای
-        bg = pg.BarGraphItem(x=x, height=amounts, width=0.8, brush='#4CAF50')
+        bg = pg.BarGraphItem(x=dates, height=amounts, width=0.5, brush='#4CAF50')
         self.feed_plot.addItem(bg)
-        
-        # تنظیم برچسب‌های محور x
-        ticks = [[(i, dates[i]) for i in range(len(dates))]]
-        self.feed_plot.getAxis('bottom').setTicks(ticks)
         
         total_feed = sum(amounts)
         self.total_feed_label.setText(f"کل خوراک: {total_feed:.0f} kg")
@@ -376,21 +353,13 @@ class PyQtDashboard(QtWidgets.QWidget):
         self.mortality_plot.clear()
         
         if not mortalities:
-            self.mortality_plot.setTitle('داده‌ای برای نمایش وجود ندارد - لطفاً در تب تلفات ثبت کنید')
+            self.mortality_plot.setTitle('داده‌ای برای نمایش وجود ندارد')
             return
         
         dates = [m.get('date', '') for m in mortalities]
         counts = [m.get('count', 0) for m in mortalities]
         
-        # استفاده از اندیس به جای تاریخ
-        x = list(range(len(dates)))
-        
-        # رسم خط تلفات
-        self.mortality_plot.plot(x, counts, pen=pg.mkPen(color='#F48771', width=3), symbol='o', symbolBrush='#F48771')
-        
-        # تنظیم برچسب‌های محور x
-        ticks = [[(i, dates[i]) for i in range(len(dates))]]
-        self.mortality_plot.getAxis('bottom').setTicks(ticks)
+        self.mortality_plot.plot(dates, counts, pen=pg.mkPen(color='#F48771', width=3), symbol='o', symbolBrush='#F48771')
         
         total_mortality = sum(counts)
         self.total_mortality_label.setText(f"کل تلفات: {total_mortality} عدد")
@@ -405,22 +374,14 @@ class PyQtDashboard(QtWidgets.QWidget):
         self.water_plot.clear()
         
         if not water_params:
-            self.water_plot.setTitle('داده‌ای برای نمایش وجود ندارد - لطفاً در تب پارامترهای آب ثبت کنید')
+            self.water_plot.setTitle('داده‌ای برای نمایش وجود ندارد')
             return
         
         dates = [w.get('date', '') for w in water_params]
         temps = [w.get('temperature', 0) for w in water_params]
         oxygen = [w.get('dissolved_oxygen', 0) for w in water_params]
         
-        # استفاده از اندیس به جای تاریخ
-        x = list(range(len(dates)))
-        
-        # رسم خطوط
-        self.water_plot.plot(x, temps, pen=pg.mkPen(color='#FF5722', width=3), symbol='o', name='دما')
-        self.water_plot.plot(x, oxygen, pen=pg.mkPen(color='#4CAF50', width=3), symbol='s', name='اکسیژن')
-        
-        # تنظیم برچسب‌های محور x
-        ticks = [[(i, dates[i]) for i in range(len(dates))]]
-        self.water_plot.getAxis('bottom').setTicks(ticks)
+        self.water_plot.plot(dates, temps, pen=pg.mkPen(color='#FF5722', width=3), symbol='o', name='دما')
+        self.water_plot.plot(dates, oxygen, pen=pg.mkPen(color='#4CAF50', width=3), symbol='s', name='اکسیژن')
         
         self.water_plot.addLegend()

@@ -233,7 +233,6 @@ class DailyFeed:
         self.feed_type = ""              # نوع غذا
         self.feed_amount = 0.0           # مقدار غذا (کیلوگرم)
         self.feed_time = ""              # زمان تغذیه
-        self.fcr = 0.0                   # ضریب تبدیل غذایی
         self.note = ""
 
 
