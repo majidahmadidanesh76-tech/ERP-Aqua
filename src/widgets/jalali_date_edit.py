@@ -1,9 +1,12 @@
 """
-ویجت استاندارد انتخاب تاریخ شمسی با استفاده از QDateEdit و QCalendar
+ویجت انتخاب تاریخ شمسی برای ERP-Aqua
+نسخه مقاوم در برابر خطا - هم میلادی و هم شمسی را پشتیبانی می‌کند
 """
+
 from PyQt5 import QtWidgets, QtCore
-from PyQt5.QtCore import QDate, QCalendar
 import jdatetime
+import re
+
 
 class JalaliDateEdit(QtWidgets.QDateEdit):
     """ویجت انتخاب تاریخ شمسی با پشتیبانی از تقویم جلالی"""
@@ -11,44 +14,60 @@ class JalaliDateEdit(QtWidgets.QDateEdit):
     def __init__(self, parent=None):
         super().__init__(parent)
         
-        # تنظیم تقویم جلالی (پشتیبانی شده در Qt >= 5.14)
-        self._jalali_calendar = QCalendar(QCalendar.System.Jalali)
-        
-        # تنظیمات ظاهری
-        self.setDisplayFormat("dd/MM/yyyy")
+        self.setDisplayFormat("yyyy/MM/dd")
         self.setCalendarPopup(True)
-        self.setCalendar(self._jalali_calendar)
         self.setAlignment(QtCore.Qt.AlignCenter)
         
-        # محدودیت سال‌ها (1300 تا 1500)
-        min_date = QDate.fromString("1300/01/01", "yyyy/MM/dd", self._jalali_calendar)
-        max_date = QDate.fromString("1500/12/30", "yyyy/MM/dd", self._jalali_calendar)
-        self.setDateRange(min_date, max_date)
-        
-        # تنظیم تاریخ امروز
         self.set_to_today()
     
     def set_to_today(self):
         """تنظیم تاریخ به امروز (شمسی)"""
         today_jalali = jdatetime.date.today()
-        jalali_date = QDate.fromString(
-            f"{today_jalali.year}/{today_jalali.month:02d}/{today_jalali.day:02d}",
-            "yyyy/MM/dd",
-            self._jalali_calendar
-        )
-        self.setDate(jalali_date)
+        self.set_jalali_date(f"{today_jalali.year}/{today_jalali.month:02d}/{today_jalali.day:02d}")
     
     def get_jalali_date(self) -> str:
         """دریافت تاریخ شمسی به صورت رشته 'yyyy/mm/dd'"""
-        return self.date().toString("yyyy/MM/dd")
+        qdate = self.date()
+        if qdate.isValid():
+            jalali_date = jdatetime.date.fromgregorian(date=qdate.toPyDate())
+            return f"{jalali_date.year}/{jalali_date.month:02d}/{jalali_date.day:02d}"
+        return ""
     
     def set_jalali_date(self, date_str: str):
-        """تنظیم تاریخ از روی رشته شمسی 'yyyy/mm/dd'"""
+        """تنظیم تاریخ - هم میلادی و هم شمسی را قبول می‌کند"""
+        if not date_str:
+            return False
+        
         try:
-            qdate = QDate.fromString(date_str, "yyyy/MM/dd", self._jalali_calendar)
-            if qdate.isValid():
-                self.setDate(qdate)
-                return True
-        except:
-            pass
-        return False
+            # استخراج اعداد از رشته
+            parts = re.findall(r'\d+', date_str)
+            if len(parts) >= 3:
+                year = int(parts[0])
+                month = int(parts[1])
+                day = int(parts[2])
+                
+                # محدوده سال شمسی: 1300-1500
+                if 1300 <= year <= 1500:
+                    # تاریخ شمسی است
+                    gregorian_date = jdatetime.date(year, month, day).togregorian()
+                    qdate = QtCore.QDate(gregorian_date.year, gregorian_date.month, gregorian_date.day)
+                    if qdate.isValid():
+                        self.setDate(qdate)
+                        return True
+                # محدوده سال میلادی: 1900-2100
+                elif 1900 <= year <= 2100:
+                    # تاریخ میلادی است، مستقیم تنظیم کن
+                    qdate = QtCore.QDate(year, month, day)
+                    if qdate.isValid():
+                        self.setDate(qdate)
+                        return True
+                # اگر هیچکدام نبود، سعی کن مستقیم تنظیم کنی
+                else:
+                    qdate = QtCore.QDate(year, month, day)
+                    if qdate.isValid():
+                        self.setDate(qdate)
+                        return True
+            return False
+        except Exception as e:
+            print(f"خطا در تنظیم تاریخ '{date_str}': {e}")
+            return False

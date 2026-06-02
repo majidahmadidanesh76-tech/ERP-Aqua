@@ -2,17 +2,26 @@
   "feeds": [
     {
       "key": "مزرعه_درنیکا_MOO-001",
-      "farm_id": "مزرعه_درنیکا",
-      "mooring_id": "MOO-001",
       "feeds": [
         {
           "farm_id": "مزرعه_درنیکا",
           "mooring_id": "MOO-001",
           "cage_id": "Cage-001",
-          "date": "2026/06/01",
+          "date": "1405/03/13",
           "feed_type": "شروع (0-20 گرم)",
-          "feed_amount": 200.0,
+          "feed_amount": 100.0,
           "feed_time": "صبح (6-8)",
+          "fcr": 0.5,
+          "note": ""
+        },
+        {
+          "farm_id": "مزرعه_درنیکا",
+          "mooring_id": "MOO-001",
+          "cage_id": "Cage-001",
+          "date": "1405/03/13",
+          "feed_type": "شروع (0-20 گرم)",
+          "feed_amount": 110.0,
+          "feed_time": "عصر (16-18)",
           "fcr": 0.0,
           "note": ""
         },
@@ -20,11 +29,11 @@
           "farm_id": "مزرعه_درنیکا",
           "mooring_id": "MOO-001",
           "cage_id": "Cage-001",
-          "date": "2026/06/01",
+          "date": "1405/03/15",
           "feed_type": "شروع (0-20 گرم)",
-          "feed_amount": 200.0,
-          "feed_time": "صبح (6-8)",
-          "fcr": 0.0,
+          "feed_amount": 150.0,
+          "feed_time": "عصر (16-18)",
+          "fcr": 0.5,
           "note": ""
         }
       ]
@@ -33,15 +42,13 @@
   "mortalities": [
     {
       "key": "مزرعه_درنیکا_MOO-001",
-      "farm_id": "مزرعه_درنیکا",
-      "mooring_id": "MOO-001",
       "mortalities": [
         {
           "farm_id": "مزرعه_درنیکا",
           "mooring_id": "MOO-001",
           "cage_id": "Cage-001",
-          "date": "2026/06/01",
-          "count": 5,
+          "date": "1405/03/12",
+          "count": 6,
           "cause": "بیماری باکتریایی",
           "note": ""
         },
@@ -49,9 +56,9 @@
           "farm_id": "مزرعه_درنیکا",
           "mooring_id": "MOO-001",
           "cage_id": "Cage-001",
-          "date": "2026/06/01",
-          "count": 3,
-          "cause": "انگل",
+          "date": "1405/03/14",
+          "count": 4,
+          "cause": "بیماری باکتریایی",
           "note": ""
         }
       ]
@@ -60,31 +67,29 @@
   "water_parameters": [
     {
       "key": "مزرعه_درنیکا_MOO-001",
-      "farm_id": "مزرعه_درنیکا",
-      "mooring_id": "MOO-001",
       "parameters": [
         {
           "farm_id": "مزرعه_درنیکا",
           "mooring_id": "MOO-001",
           "cage_id": "Cage-001",
-          "date": "2026/06/01",
+          "date": "1405/03/12",
           "time": "صبح (6-8)",
           "temperature": 27.0,
-          "dissolved_oxygen": 3.0,
-          "salinity": 7.0,
-          "ph": 3.0,
+          "dissolved_oxygen": 5.0,
+          "salinity": 10.0,
+          "ph": 7.0,
           "note": ""
         },
         {
           "farm_id": "مزرعه_درنیکا",
           "mooring_id": "MOO-001",
           "cage_id": "Cage-001",
-          "date": "2026/06/01",
+          "date": "1405/03/13",
           "time": "صبح (6-8)",
-          "temperature": 23.0,
-          "dissolved_oxygen": 2.0,
-          "salinity": 8.0,
-          "ph": 3.0,
+          "temperature": 30.0,
+          "dissolved_oxygen": 6.0,
+          "salinity": 9.0,
+          "ph": 6.0,
           "note": ""
         }
       ]
@@ -93,17 +98,118 @@
   "biomasses": [
     {
       "key": "مزرعه_درنیکا_MOO-001",
-      "farm_id": "مزرعه_درنیکا",
-      "mooring_id": "MOO-001",
       "biomasses": [
         {
           "farm_id": "مزرعه_درنیکا",
           "mooring_id": "MOO-001",
           "cage_id": "Cage-001",
-          "date": "2026/06/01",
-          "estimated_weight": 1000.0,
-          "estimated_count": 3,
-          "sample_size": 1,
+          "date": "1405/03/12",
+          "estimated_weight": 60.0,
+          "estimated_count": 1000,
+          "sample_size": 50,
+          "initial_count": 1000,
+          "note": "ورودی اولیه بچه ماهی به قفس شماره 1  حدودا 60 گرم بوده است"
+        },
+        {
+          "farm_id": "مزرعه_درنیکا",
+          "mooring_id": "MOO-001",
+          "cage_id": "Cage-001",
+          "date": "1405/03/13",
+          "estimated_weight": 70.0,
+          "estimated_count": 990,
+          "sample_size": 6,
+          "initial_count": 1000,
+          "note": ""
+        },
+        {
+          "farm_id": "مزرعه_درنیکا",
+          "mooring_id": "MOO-001",
+          "cage_id": "Cage-001",
+          "date": "1405/03/14",
+          "estimated_weight": 80.0,
+          "estimated_count": 990,
+          "sample_size": 40,
+          "initial_count": 1000,
+          "note": ""
+        },
+        {
+          "farm_id": "مزرعه_درنیکا",
+          "mooring_id": "MOO-001",
+          "cage_id": "Cage-001",
+          "date": "1405/03/12",
+          "estimated_weight": 90.0,
+          "estimated_count": 990,
+          "sample_size": 50,
+          "initial_count": 1000,
+          "note": ""
+        },
+        {
+          "farm_id": "مزرعه_درنیکا",
+          "mooring_id": "MOO-001",
+          "cage_id": "Cage-001",
+          "date": "1405/03/12",
+          "estimated_weight": 80.0,
+          "estimated_count": 790,
+          "sample_size": 50,
+          "initial_count": 1000,
+          "note": ""
+        },
+        {
+          "farm_id": "مزرعه_درنیکا",
+          "mooring_id": "MOO-001",
+          "cage_id": "Cage-001",
+          "date": "1405/03/12",
+          "estimated_weight": 90.0,
+          "estimated_count": 790,
+          "sample_size": 60,
+          "initial_count": 1000,
+          "note": ""
+        }
+      ]
+    }
+  ],
+  "production_cycles": [
+    {
+      "key": "مزرعه_درنیکا_MOO-001",
+      "cycles": [
+        {
+          "id": "cycle_1_Cage-001",
+          "farm_id": "مزرعه_درنیکا",
+          "mooring_id": "MOO-001",
+          "cage_id": "Cage-001",
+          "start_date": "1405/03/12",
+          "species": "قزل‌آلا",
+          "initial_count": 10000,
+          "initial_weight": 50.0,
+          "target_weight": 2000.0,
+          "total_harvested_count": 200,
+          "total_harvested_kg": 14.0,
+          "remaining_count": 9800,
+          "is_active": true,
+          "is_completed": false,
+          "note": ""
+        }
+      ]
+    }
+  ],
+  "harvest_records": [
+    {
+      "key": "مزرعه_درنیکا_MOO-001",
+      "harvests": [
+        {
+          "id": "harvest_1",
+          "farm_id": "مزرعه_درنیکا",
+          "mooring_id": "MOO-001",
+          "cage_id": "Cage-001",
+          "cycle_id": "cycle_1_Cage-001",
+          "harvest_date": "1405/03/12",
+          "harvest_count": 200,
+          "average_weight": 70.0,
+          "total_weight_kg": 14.0,
+          "customer": "کرمی",
+          "price_per_kg": 500000.0,
+          "total_amount": 7000000.0,
+          "is_final": false,
           "note": ""
         }
       ]

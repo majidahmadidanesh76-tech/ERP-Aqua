@@ -18,13 +18,24 @@
         "cages": [
           {
             "id": "Cage-001",
-            "diameter": 28.5,
+            "diameter": 28.0,
             "material": "پلاستیک",
-            "install_date": "2026/06/01",
+            "install_date": "2647/08/24",
             "status": "سالم",
             "utm_x": 500.0,
             "utm_y": 500.0,
-            "color": "#569CD6",
+            "color": "#0055ff",
+            "note": ""
+          },
+          {
+            "id": "Cage-002",
+            "diameter": 28.5,
+            "material": "پلاستیک",
+            "install_date": "1405/03/12",
+            "status": "سالم",
+            "utm_x": 100000.0,
+            "utm_y": 1000.0,
+            "color": "#0055ff",
             "note": ""
           }
         ],

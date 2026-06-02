@@ -40,9 +40,10 @@ class FeedDialog(BaseDialog):
                 self.cage_combo.setCurrentIndex(idx)
         layout.addRow("قفس:", self.cage_combo)
         
-        # ========== تاریخ ==========
+        # ========== تاریخ (با ویجت شمسی) ==========
         self.date_edit = JalaliDateEdit()
         if self.feed.date:
+            # بررسی و تنظیم تاریخ شمسی
             self.date_edit.set_jalali_date(self.feed.date)
         layout.addRow("تاریخ:", self.date_edit)
         
@@ -109,7 +110,6 @@ class FeedDialog(BaseDialog):
         self.feed.fcr = self.fcr.value()
         self.feed.note = self.note.toPlainText()
         
-        # تنظیم مزرعه و مورینگ فعلی
         if self.current_farm:
             self.feed.farm_id = self.current_farm.id
         if self.current_mooring:

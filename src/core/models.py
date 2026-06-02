@@ -324,14 +324,52 @@ class WaterParameter:
         self.note = ""  
         
 class Biomass:
-    """مدل زیست‌توده (تخمین وزن و تعداد ماهی قفس)"""
     def __init__(self):
         self.id = ""
         self.farm_id = ""
         self.mooring_id = ""
         self.cage_id = ""
         self.date = ""
-        self.estimated_weight = 0.0      # وزن تخمینی ماهی (گرم)
-        self.estimated_count = 0          # تعداد تخمینی باقیمانده
-        self.sample_size = 0              # تعداد نمونه برای تخمین
-        self.note = ""        
+        self.estimated_weight = 0.0
+        self.estimated_count = 0
+        self.sample_size = 0
+        self.initial_count = 0  # این خط حتماً باید باشد
+        self.note = ""
+        
+class HarvestRecord:
+    """مدل ثبت برداشت مرحله‌ای از قفس"""
+    def __init__(self):
+        self.id = ""
+        self.farm_id = ""
+        self.mooring_id = ""
+        self.cage_id = ""
+        self.cycle_id = ""              # شناسه دوره پرورش
+        self.harvest_date = ""          # تاریخ برداشت
+        self.harvest_count = 0          # تعداد برداشت شده در این مرحله
+        self.average_weight = 0.0       # وزن متوسط در این مرحله (گرم)
+        self.total_weight_kg = 0.0      # کل وزن این مرحله (کیلوگرم)
+        self.customer = ""              # مشتری (اختیاری)
+        self.price_per_kg = 0.0         # قیمت فروش (تومان)
+        self.total_amount = 0.0         # کل مبلغ
+        self.is_final = False           # آیا این آخرین برداشت است؟
+        self.note = ""
+class ProductionCycle:
+    """مدل دوره پرورش قفس"""
+    def __init__(self):
+        self.id = ""
+        self.farm_id = ""
+        self.mooring_id = ""
+        self.cage_id = ""
+        self.start_date = ""            # تاریخ شروع (رهاسازی)
+        self.species = ""               # گونه ماهی
+        self.initial_count = 0          # تعداد اولیه رهاسازی شده
+        self.initial_weight = 0.0       # وزن اولیه (گرم)
+        self.target_weight = 0.0        # وزن هدف (گرم)
+        self.is_active = True           # دوره فعال است؟
+        self.note = ""
+        
+        # فیلدهای محاسباتی (از روی برداشت‌ها)
+        self.total_harvested_count = 0   # مجموع برداشت شده تا الان
+        self.total_harvested_kg = 0.0    # مجموع وزن برداشت شده
+        self.remaining_count = 0         # تعداد باقیمانده در قفس
+        self.is_completed = False        # آیا دوره کامل شده است؟        
