@@ -1,5 +1,6 @@
 """
 مدیریت اتصال و عملیات دیتابیس MySQL برای ERP-Aqua
+نسخه کامل با همه متدها
 """
 
 import mysql.connector
@@ -354,27 +355,27 @@ class DatabaseManager:
         )
 
     def check_cycle_dependencies(self, cycle_id):
-        """بررسی اینکه آیا دوره دارای داده‌های وابسته است"""
+        """بررسی اینکه آیا دوره دارای دادههای وابسته است"""
         biomass_count = self.fetch_one("SELECT COUNT(*) as count FROM biomasses WHERE cycle_id = %s", (cycle_id,))
         if biomass_count and biomass_count['count'] > 0:
             return False, "زیست توده"
-        
+
         feed_count = self.fetch_one("SELECT COUNT(*) as count FROM feeds WHERE cycle_id = %s", (cycle_id,))
         if feed_count and feed_count['count'] > 0:
             return False, "تغذیه"
-        
+
         mortality_count = self.fetch_one("SELECT COUNT(*) as count FROM mortalities WHERE cycle_id = %s", (cycle_id,))
         if mortality_count and mortality_count['count'] > 0:
             return False, "تلفات"
-        
+
         water_count = self.fetch_one("SELECT COUNT(*) as count FROM water_parameters WHERE cycle_id = %s", (cycle_id,))
         if water_count and water_count['count'] > 0:
             return False, "پارامترهای آب"
-        
+
         harvest_count = self.fetch_one("SELECT COUNT(*) as count FROM harvests WHERE cycle_id = %s", (cycle_id,))
         if harvest_count and harvest_count['count'] > 0:
             return False, "برداشت"
-        
+
         return True, ""
 
     # ==================== تغذیه ====================
@@ -428,7 +429,7 @@ class DatabaseManager:
         """
         return self.execute_query(query, (cage_id, cycle_id, date, time, temperature, 
                                          dissolved_oxygen, salinity, ph, note))
-    
+
     def get_water_parameters_by_cycle(self, cycle_id):
         return self.fetch_all(
             "SELECT * FROM water_parameters WHERE cycle_id = %s ORDER BY date",
@@ -480,3 +481,86 @@ class DatabaseManager:
     def get_total_feed_by_cycle(self, cycle_id):
         result = self.fetch_one("SELECT SUM(feed_amount) as total FROM feeds WHERE cycle_id = %s", (cycle_id,))
         return result['total'] if result and result['total'] else 0
+
+    # ==================== وظایف روزانه ====================
+
+    def save_daily_task(self, plan_id, task_date, task_type, assigned_to, shift_time, notes=""):
+        """ذخیره وظیفه روزانه - بدون plan_id"""
+        query = """
+            INSERT INTO daily_tasks (task_date, task_type, assigned_to, shift_time, status, notes)
+            VALUES (%s, %s, %s, %s, 'pending', %s)
+        """
+        return self.execute_query(query, (task_date, task_type, assigned_to, shift_time, notes))
+
+    def get_daily_tasks_by_date(self, task_date):
+        """دریافت وظایف یک تاریخ مشخص"""
+        return self.fetch_all(
+            "SELECT * FROM daily_tasks WHERE task_date = %s ORDER BY shift_time",
+            (task_date,)
+        )
+
+    def update_task_status(self, task_id, status):
+        """بهروزرسانی وضعیت وظیفه"""
+        return self.execute_query(
+            "UPDATE daily_tasks SET status = %s WHERE id = %s",
+            (status, task_id)
+        )
+
+    def delete_task(self, task_id):
+        """حذف وظیفه"""
+        return self.execute_query("DELETE FROM daily_tasks WHERE id = %s", (task_id,))
+
+    # ==================== برنامه‌های تولید ====================
+
+    def save_production_plan(self, cage_id, species_id, stocking_date, harvest_date, feed_required):
+        """ذخیره برنامه تولید جدید"""
+        query = """
+            INSERT INTO production_plans (cage_id, species_id, planned_stocking_date, 
+                                          planned_harvest_date, estimated_feed_required, status)
+            VALUES (%s, %s, %s, %s, %s, 'active')
+        """
+        return self.execute_query(query, (cage_id, species_id, stocking_date, harvest_date, feed_required))
+
+    def get_production_plans_by_cage(self, cage_id):
+        """دریافت برنامه‌های تولید برای یک قفس"""
+        return self.fetch_all(
+            "SELECT * FROM production_plans WHERE cage_id = %s ORDER BY planned_stocking_date DESC",
+            (cage_id,)
+        )
+
+    # ==================== گونه‌های ماهی ====================
+
+    def get_all_species(self):
+        """دریافت لیست همه گونه‌های ماهی"""
+        return self.fetch_all("SELECT * FROM fish_species ORDER BY name")
+
+    def get_species_by_id(self, species_id):
+        """دریافت اطلاعات یک گونه بر اساس ID"""
+        return self.fetch_one("SELECT * FROM fish_species WHERE id = %s", (species_id,))
+
+    def add_species(self, name, opt_temp_min, opt_temp_max, critical_temp, target_fcr, harvest_weight, daily_gain, description=""):
+        """افزودن گونه جدید"""
+        query = """
+            INSERT INTO fish_species (name, optimal_temp_min, optimal_temp_max, critical_temp_high, 
+                                      target_fcr, typical_harvest_weight, avg_daily_gain, description)
+            VALUES (%s, %s, %s, %s, %s, %s, %s, %s)
+        """
+        return self.execute_query(query, (name, opt_temp_min, opt_temp_max, critical_temp, 
+                                             target_fcr, harvest_weight, daily_gain, description))
+
+    def update_species(self, species_id, name, opt_temp_min, opt_temp_max, critical_temp,
+                       target_fcr, harvest_weight, daily_gain, description=""):
+        """ویرایش گونه موجود"""
+        query = """
+            UPDATE fish_species 
+            SET name = %s, optimal_temp_min = %s, optimal_temp_max = %s,
+                critical_temp_high = %s, target_fcr = %s, typical_harvest_weight = %s,
+                avg_daily_gain = %s, description = %s
+            WHERE id = %s
+        """
+        return self.execute_query(query, (name, opt_temp_min, opt_temp_max, critical_temp,
+                                             target_fcr, harvest_weight, daily_gain, description, species_id))
+
+    def delete_species(self, species_id):
+        """حذف گونه"""
+        return self.execute_query("DELETE FROM fish_species WHERE id = %s", (species_id,))

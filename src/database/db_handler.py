@@ -1,6 +1,6 @@
 """
 واسط بین برنامه و دیتابیس - جایگزین فایل JSON
-نسخه کامل با پشتیبانی از همه اجزا و برنامه‌ریزی تولید
+نسخه کامل با پشتیبانی از همه اجزا و برنامهریزی تولید
 """
 
 from .db_manager import DatabaseManager
@@ -384,70 +384,15 @@ class DatabaseHandler:
     def get_total_feed_by_cycle(self, cycle_id):
         return self.db.get_total_feed_by_cycle(cycle_id)
 
-    # ==================== گونه‌های ماهی (برنامه‌ریزی تولید) ====================
-
-    def get_all_species(self):
-        """دریافت لیست همه گونه‌های ماهی"""
-        return self.db.fetch_all("SELECT * FROM fish_species ORDER BY name")
-
-    def get_species_by_id(self, species_id):
-        """دریافت اطلاعات یک گونه بر اساس ID"""
-        return self.db.fetch_one("SELECT * FROM fish_species WHERE id = %s", (species_id,))
-
-    def add_species(self, name, opt_temp_min, opt_temp_max, critical_temp, target_fcr, harvest_weight, daily_gain, description=""):
-        """افزودن گونه جدید"""
-        query = """
-            INSERT INTO fish_species (name, optimal_temp_min, optimal_temp_max, critical_temp_high, 
-                                      target_fcr, typical_harvest_weight, avg_daily_gain, description)
-            VALUES (%s, %s, %s, %s, %s, %s, %s, %s)
-        """
-        return self.db.execute_query(query, (name, opt_temp_min, opt_temp_max, critical_temp, 
-                                             target_fcr, harvest_weight, daily_gain, description))
-
-    def update_species(self, species_id, name, opt_temp_min, opt_temp_max, critical_temp,
-                       target_fcr, harvest_weight, daily_gain, description=""):
-        """ویرایش گونه موجود"""
-        query = """
-            UPDATE fish_species 
-            SET name = %s, optimal_temp_min = %s, optimal_temp_max = %s,
-                critical_temp_high = %s, target_fcr = %s, typical_harvest_weight = %s,
-                avg_daily_gain = %s, description = %s
-            WHERE id = %s
-        """
-        return self.db.execute_query(query, (name, opt_temp_min, opt_temp_max, critical_temp,
-                                             target_fcr, harvest_weight, daily_gain, description, species_id))
-
-    def delete_species(self, species_id):
-        """حذف گونه"""
-        return self.db.execute_query("DELETE FROM fish_species WHERE id = %s", (species_id,))
-
-    # ==================== برنامه‌های تولید ====================
-
-    def save_production_plan(self, cage_id, species_id, stocking_date, harvest_date, feed_required):
-        """ذخیره برنامه تولید جدید"""
-        query = """
-            INSERT INTO production_plans (cage_id, species_id, planned_stocking_date, 
-                                          planned_harvest_date, estimated_feed_required, status)
-            VALUES (%s, %s, %s, %s, %s, 'active')
-        """
-        return self.db.execute_query(query, (cage_id, species_id, stocking_date, harvest_date, feed_required))
-
-    def get_production_plans_by_cage(self, cage_id):
-        """دریافت برنامه‌های تولید برای یک قفس"""
-        return self.db.fetch_all(
-            "SELECT * FROM production_plans WHERE cage_id = %s ORDER BY planned_stocking_date DESC",
-            (cage_id,)
-        )
-
     # ==================== وظایف روزانه ====================
 
     def save_daily_task(self, plan_id, task_date, task_type, assigned_to, shift_time, notes=""):
-        """ذخیره وظیفه روزانه"""
+        """ذخیره وظیفه روزانه - بدون plan_id"""
         query = """
-            INSERT INTO daily_tasks (plan_id, task_date, task_type, assigned_to, shift_time, status, notes)
-            VALUES (%s, %s, %s, %s, %s, 'pending', %s)
+            INSERT INTO daily_tasks (task_date, task_type, assigned_to, shift_time, status, notes)
+            VALUES (%s, %s, %s, %s, 'pending', %s)
         """
-        return self.db.execute_query(query, (plan_id, task_date, task_type, assigned_to, shift_time, notes))
+        return self.db.execute_query(query, (task_date, task_type, assigned_to, shift_time, notes))
 
     def get_daily_tasks_by_date(self, task_date):
         """دریافت وظایف یک تاریخ مشخص"""
@@ -457,7 +402,7 @@ class DatabaseHandler:
         )
 
     def update_task_status(self, task_id, status):
-        """به‌روزرسانی وضعیت وظیفه"""
+        """بهروزرسانی وضعیت وظیفه"""
         return self.db.execute_query(
             "UPDATE daily_tasks SET status = %s WHERE id = %s",
             (status, task_id)
@@ -467,7 +412,46 @@ class DatabaseHandler:
         """حذف وظیفه"""
         return self.db.execute_query("DELETE FROM daily_tasks WHERE id = %s", (task_id,))
 
-    # ==================== متدهای کمکی 
+    # ==================== گونههای ماهی ====================
+
+    def get_all_species(self):
+        """دریافت لیست همه گونههای ماهی"""
+        return self.db.fetch_all("SELECT * FROM fish_species ORDER BY name")
+
+    def get_species_by_id(self, species_id):
+        """دریافت اطلاعات یک گونه بر اساس ID"""
+        return self.db.fetch_one("SELECT * FROM fish_species WHERE id = %s", (species_id,))
+
+    def add_species(self, name, opt_temp_min, opt_temp_max, critical_temp, target_fcr, harvest_weight, daily_gain, description=""):
+        """افزودن گونه جدید"""
+        return self.db.add_species(name, opt_temp_min, opt_temp_max, critical_temp,
+                                   target_fcr, harvest_weight, daily_gain, description)
+
+    def update_species(self, species_id, name, opt_temp_min, opt_temp_max, critical_temp,
+                       target_fcr, harvest_weight, daily_gain, description=""):
+        """ویرایش گونه موجود"""
+        return self.db.update_species(species_id, name, opt_temp_min, opt_temp_max, critical_temp,
+                                      target_fcr, harvest_weight, daily_gain, description)
+
+    def delete_species(self, species_id):
+        """حذف گونه"""
+        return self.db.delete_species(species_id)
+
+    # ==================== برنامههای تولید ====================
+
+    def save_production_plan(self, cage_id, species_id, stocking_date, harvest_date, feed_required):
+        """ذخیره برنامه تولید جدید"""
+        return self.db.save_production_plan(cage_id, species_id, stocking_date, harvest_date, feed_required)
+
+    def get_production_plans_by_cage(self, cage_id):
+        """دریافت برنامههای تولید برای یک قفس"""
+        return self.db.get_production_plans_by_cage(cage_id)
+
+    # ==================== متدهای کمکی ====================
+
+    def fetch_all(self, query, params=None):
+        """اجرای کوئری مستقیم و دریافت تمام نتایج"""
+        return self.db.fetch_all(query, params)
 
     def fetch_one(self, query, params=None):
         """دریافت یک رکورد از دیتابیس"""

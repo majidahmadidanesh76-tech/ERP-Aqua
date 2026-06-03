@@ -257,6 +257,69 @@ QDialog QPushButton:hover {
     background-color: #1177BB;
 }
 
+/* ==================== فیلدهای تاریخ (QDateEdit) ==================== */
+QDateEdit, QDateTimeEdit {
+    background-color: #3C3C3C;
+    border: 1px solid #3E3E42;
+    border-radius: 4px;
+    padding: 5px 8px;
+    color: #C8C8C8;
+}
+
+QDateEdit:focus, QDateTimeEdit:focus {
+    border-color: #569CD6;
+}
+
+QDateEdit::drop-down, QDateTimeEdit::drop-down {
+    border: none;
+    width: 20px;
+}
+
+QDateEdit::down-arrow, QDateTimeEdit::down-arrow {
+    image: none;
+}
+
+/* ==================== تقویم (Calendar Widget) ==================== */
+QCalendarWidget {
+    background-color: #2D2D30;
+    color: #C8C8C8;
+}
+
+QCalendarWidget QToolButton {
+    background-color: #3C3C3C;
+    color: #C8C8C8;
+    border: 1px solid #3E3E42;
+    border-radius: 4px;
+}
+
+QCalendarWidget QToolButton:hover {
+    background-color: #569CD6;
+    color: white;
+}
+
+QCalendarWidget QMenu {
+    background-color: #2D2D30;
+    color: #C8C8C8;
+}
+
+QCalendarWidget QSpinBox {
+    background-color: #3C3C3C;
+    color: #C8C8C8;
+    border: 1px solid #3E3E42;
+    border-radius: 4px;
+}
+
+QCalendarWidget QAbstractItemView:enabled {
+    background-color: #2D2D30;
+    color: #C8C8C8;
+    selection-background-color: #569CD6;
+}
+
+QCalendarWidget QWidget {
+    background-color: #2D2D30;
+    color: #C8C8C8;
+}
+
 /* ==================== ToolTip ==================== */
 QToolTip {
     background-color: #0E639C;
