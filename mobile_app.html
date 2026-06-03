@@ -1,0 +1,652 @@
+<!DOCTYPE html>
+<html dir="rtl" lang="fa">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=yes, viewport-fit=cover">
+    <meta name="theme-color" content="#1E1E1E">
+    <title>ERP-Aqua | کارتابل موبایل</title>
+    <style>
+        * {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+        }
+        
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: #1E1E1E;
+            color: #C8C8C8;
+            padding: 16px;
+            margin: 0;
+            direction: rtl;
+        }
+        
+        /* هدر */
+        .header {
+            background: linear-gradient(135deg, #0E639C, #1177BB);
+            margin: -16px -16px 16px -16px;
+            padding: 20px 16px;
+            text-align: center;
+        }
+        
+        .header h1 {
+            font-size: 20px;
+            margin: 0;
+            color: white;
+        }
+        
+        .header p {
+            font-size: 12px;
+            opacity: 0.8;
+            margin-top: 5px;
+        }
+        
+        /* کارت وظایف */
+        .task-card {
+            background: #2D2D30;
+            border-radius: 12px;
+            padding: 14px;
+            margin-bottom: 12px;
+            border-right: 4px solid #569CD6;
+            transition: all 0.2s;
+        }
+        
+        .task-card.urgent {
+            border-right-color: #F48771;
+            background: #3A2A2A;
+        }
+        
+        .task-card.high {
+            border-right-color: #F48771;
+        }
+        
+        .task-title {
+            font-size: 16px;
+            font-weight: bold;
+            color: #569CD6;
+            margin-bottom: 6px;
+        }
+        
+        .task-desc {
+            font-size: 13px;
+            color: #C8C8C8;
+            margin-bottom: 10px;
+            line-height: 1.4;
+        }
+        
+        .task-meta {
+            font-size: 11px;
+            color: #808080;
+            margin-bottom: 12px;
+            display: flex;
+            flex-wrap: wrap;
+            gap: 12px;
+        }
+        
+        .task-meta span {
+            display: inline-flex;
+            align-items: center;
+            gap: 4px;
+        }
+        
+        .status-pending { color: #F48771; }
+        .status-doing { color: #DCDCAA; }
+        .status-done { color: #4EC9B0; }
+        
+        /* دکمه‌ها */
+        .btn-group {
+            display: flex;
+            gap: 8px;
+            flex-wrap: wrap;
+        }
+        
+        button {
+            background: #0E639C;
+            color: white;
+            border: none;
+            padding: 8px 16px;
+            border-radius: 8px;
+            font-size: 13px;
+            cursor: pointer;
+            transition: all 0.2s;
+            font-weight: bold;
+        }
+        
+        button:hover {
+            background: #1177BB;
+            transform: scale(1.02);
+        }
+        
+        button.secondary {
+            background: #3C3C3C;
+            color: #C8C8C8;
+            border: 1px solid #3E3E42;
+        }
+        
+        button.danger {
+            background: #8B2C2C;
+        }
+        
+        button.success {
+            background: #2E8B57;
+        }
+        
+        button:disabled {
+            opacity: 0.5;
+            cursor: not-allowed;
+        }
+        
+        /* فرم */
+        .form-container {
+            background: #252526;
+            border-radius: 12px;
+            padding: 16px;
+            margin-top: 10px;
+        }
+        
+        .form-group {
+            margin-bottom: 16px;
+        }
+        
+        label {
+            display: block;
+            margin-bottom: 6px;
+            font-size: 13px;
+            font-weight: bold;
+            color: #569CD6;
+        }
+        
+        input, select, textarea {
+            width: 100%;
+            padding: 10px;
+            background: #3C3C3C;
+            border: 1px solid #3E3E42;
+            color: #C8C8C8;
+            border-radius: 8px;
+            font-size: 14px;
+            font-family: inherit;
+        }
+        
+        input:focus, select:focus, textarea:focus {
+            outline: none;
+            border-color: #569CD6;
+        }
+        
+        textarea {
+            resize: vertical;
+            min-height: 80px;
+        }
+        
+        /* وضعیت بارگذاری */
+        .loading {
+            text-align: center;
+            padding: 40px;
+            color: #808080;
+        }
+        
+        .empty-state {
+            text-align: center;
+            padding: 50px 20px;
+            color: #808080;
+        }
+        
+        /* هدر کاربر */
+        .user-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 16px;
+            padding-bottom: 12px;
+            border-bottom: 1px solid #3E3E42;
+        }
+        
+        .user-info {
+            font-size: 14px;
+        }
+        
+        .user-name {
+            color: #569CD6;
+            font-weight: bold;
+        }
+        
+        .badge {
+            background: #0E639C;
+            padding: 2px 8px;
+            border-radius: 20px;
+            font-size: 10px;
+        }
+        
+        /* تب‌ها */
+        .tabs {
+            display: flex;
+            gap: 8px;
+            margin-bottom: 16px;
+        }
+        
+        .tab {
+            flex: 1;
+            text-align: center;
+            padding: 8px;
+            background: #2D2D30;
+            border-radius: 8px;
+            cursor: pointer;
+        }
+        
+        .tab.active {
+            background: #0E639C;
+            color: white;
+        }
+        
+        .hidden {
+            display: none;
+        }
+    </style>
+</head>
+<body>
+    <div id="app">
+        <!-- صفحه لاگین -->
+        <div id="loginPage">
+            <div class="header">
+                <h1>🐟 ERP-Aqua</h1>
+                <p>کارتابل پرسنل</p>
+            </div>
+            <div class="form-container" style="margin-top: 20px;">
+                <div class="form-group">
+                    <label>نام کاربری</label>
+                    <input type="text" id="username" placeholder="مثال: tech1">
+                </div>
+                <div class="form-group">
+                    <label>رمز عبور</label>
+                    <input type="password" id="password" placeholder="رمز عبور">
+                </div>
+                <button onclick="login()" style="width: 100%;">ورود به کارتابل</button>
+                <div id="loginError" style="color:#F48771; margin-top:12px; text-align:center;"></div>
+            </div>
+            <div style="margin-top: 20px; text-align: center; font-size: 11px; color: #808080;">
+                کاربران نمونه: tech1 / op1 / manager<br>
+                رمز عبور: 1234
+            </div>
+        </div>
+        
+        <!-- صفحه داشبورد (بعد از لاگین) -->
+        <div id="dashboardPage" class="hidden">
+            <div class="header">
+                <h1>📋 کارتابل وظایف</h1>
+                <p id="userDisplay"></p>
+            </div>
+            
+            <div class="user-header">
+                <div class="user-info">
+                    👤 <span id="userName" class="user-name"></span>
+                    <span id="userRole" class="badge"></span>
+                </div>
+                <button class="secondary" onclick="logout()" style="padding: 6px 12px;">🚪 خروج</button>
+            </div>
+            
+            <div class="tabs">
+                <div class="tab active" onclick="switchTab('pending')">⏳ در انتظار</div>
+                <div class="tab" onclick="switchTab('doing')">⚙️ در حال انجام</div>
+                <div class="tab" onclick="switchTab('done')">✅ انجام شده</div>
+                <div class="tab" onclick="switchTab('reports')">📄 گزارش‌ها</div>
+            </div>
+            
+            <div id="tasksContainer">
+                <div class="loading">در حال بارگذاری...</div>
+            </div>
+        </div>
+        
+        <!-- صفحه فرم -->
+        <div id="formPage" class="hidden">
+            <div class="header" style="padding: 16px;">
+                <button class="secondary" onclick="backToTasks()" style="float: right; padding: 4px 12px;">← بازگشت</button>
+                <h1 style="font-size: 18px; clear: both;">📝 ثبت گزارش</h1>
+            </div>
+            <div id="formContainer" class="form-container"></div>
+        </div>
+    </div>
+
+    <script>
+        let API_URL = '';
+        let currentUser = null;
+        let currentTask = null;
+        let currentTab = 'pending';
+        let allTasks = [];
+        
+        // تنظیم آدرس API
+        function getApiUrl() {
+            if (API_URL) return API_URL;
+            const hostname = window.location.hostname;
+            const port = window.location.port;
+            if (port === '5000' || port === '') {
+                API_URL = window.location.protocol + '//' + hostname + ':' + (port || '5000');
+            } else {
+                API_URL = window.location.protocol + '//' + hostname + ':5000';
+            }
+            return API_URL;
+        }
+        
+        // لاگین
+        async function login() {
+            const username = document.getElementById('username').value.trim();
+            const password = document.getElementById('password').value;
+            
+            if (!username) {
+                showLoginError('نام کاربری را وارد کنید');
+                return;
+            }
+            
+            try {
+                const res = await fetch(getApiUrl() + '/api/login', {
+                    method: 'POST',
+                    headers: {'Content-Type': 'application/json'},
+                    body: JSON.stringify({username, password})
+                });
+                const data = await res.json();
+                
+                if (data.success) {
+                    currentUser = data.user;
+                    currentUser.username = username;
+                    document.getElementById('loginPage').classList.add('hidden');
+                    document.getElementById('dashboardPage').classList.remove('hidden');
+                    document.getElementById('userName').innerText = currentUser.name;
+                    document.getElementById('userRole').innerText = currentUser.role_name;
+                    document.getElementById('userDisplay').innerHTML = `👋 خوش آمدید، ${currentUser.name}`;
+                    loadTasks();
+                } else {
+                    showLoginError(data.message);
+                }
+            } catch (err) {
+                showLoginError('خطا در ارتباط با سرور');
+                console.error(err);
+            }
+        }
+        
+        function showLoginError(msg) {
+            document.getElementById('loginError').innerText = msg;
+            setTimeout(() => {
+                document.getElementById('loginError').innerText = '';
+            }, 3000);
+        }
+        
+        // بارگذاری وظایف
+        async function loadTasks() {
+            const container = document.getElementById('tasksContainer');
+            container.innerHTML = '<div class="loading">در حال بارگذاری...</div>';
+            
+            try {
+                const res = await fetch(getApiUrl() + `/api/tasks?username=${currentUser.username}`);
+                const data = await res.json();
+                
+                if (data.success) {
+                    allTasks = data.tasks;
+                    renderTasks();
+                } else {
+                    container.innerHTML = '<div class="empty-state">خطا در دریافت وظایف</div>';
+                }
+            } catch (err) {
+                console.error(err);
+                container.innerHTML = '<div class="empty-state">⚠️ خطا در ارتباط با سرور</div>';
+            }
+        }
+        
+        // نمایش وظایف بر اساس تب انتخاب شده
+        function renderTasks() {
+            let filteredTasks = [];
+            
+            if (currentTab === 'pending') {
+                filteredTasks = allTasks.filter(t => t.status === 'pending');
+            } else if (currentTab === 'doing') {
+                filteredTasks = allTasks.filter(t => t.status === 'doing');
+            } else if (currentTab === 'done') {
+                filteredTasks = allTasks.filter(t => t.status === 'done');
+            } else if (currentTab === 'reports') {
+                loadReportsHistory();
+                return;
+            }
+            
+            const container = document.getElementById('tasksContainer');
+            
+            if (filteredTasks.length === 0) {
+                container.innerHTML = '<div class="empty-state">✅ هیچ وظیفه‌ای در این بخش وجود ندارد</div>';
+                return;
+            }
+            
+            container.innerHTML = filteredTasks.map(task => `
+                <div class="task-card ${task.priority}">
+                    <div class="task-title">${escapeHtml(task.title)}</div>
+                    <div class="task-desc">${escapeHtml(task.description)}</div>
+                    <div class="task-meta">
+                        <span>📍 ${escapeHtml(task.location || '-')}</span>
+                        <span>📅 ${task.due_date || '-'}</span>
+                        <span class="status-${task.status}">${task.status_text}</span>
+                    </div>
+                    <div class="btn-group">
+                        ${task.status === 'pending' ? `<button onclick="startTask(${task.id})">▶️ شروع</button>` : ''}
+                        ${task.status === 'doing' ? `<button onclick="completeTask(${task.id})">✅ تکمیل</button>` : ''}
+                        <button onclick="showForm(${task.id}, '${task.form_type}')">📝 ثبت گزارش</button>
+                    </div>
+                </div>
+            `).join('');
+        }
+        
+        // شروع وظیفه
+        async function startTask(taskId) {
+            try {
+                const res = await fetch(getApiUrl() + `/api/tasks/${taskId}/start`, {
+                    method: 'POST',
+                    headers: {'Content-Type': 'application/json'}
+                });
+                const data = await res.json();
+                if (data.success) {
+                    loadTasks();
+                } else {
+                    alert(data.message);
+                }
+            } catch (err) {
+                alert('خطا در شروع وظیفه');
+            }
+        }
+        
+        // تکمیل وظیفه
+        async function completeTask(taskId) {
+            try {
+                const res = await fetch(getApiUrl() + `/api/tasks/${taskId}/complete`, {
+                    method: 'POST',
+                    headers: {'Content-Type': 'application/json'}
+                });
+                const data = await res.json();
+                if (data.success) {
+                    loadTasks();
+                } else {
+                    alert(data.message);
+                }
+            } catch (err) {
+                alert('خطا در تکمیل وظیفه');
+            }
+        }
+        
+        // نمایش فرم
+        async function showForm(taskId, formType) {
+            currentTask = taskId;
+            
+            try {
+                const res = await fetch(getApiUrl() + `/api/forms/${formType}`);
+                const data = await res.json();
+                
+                if (data.success) {
+                    const form = data.form;
+                    let html = `<h3 style="margin-bottom: 16px;">${form.title}</h3>`;
+                    
+                    form.fields.forEach(field => {
+                        const required = field.required ? 'required' : '';
+                        if (field.type === 'textarea') {
+                            html += `
+                                <div class="form-group">
+                                    <label>${field.label} ${field.required ? '*' : ''}</label>
+                                    <textarea id="field_${field.name}" placeholder="${field.placeholder || ''}" ${required}></textarea>
+                                </div>
+                            `;
+                        } else if (field.type === 'select') {
+                            html += `
+                                <div class="form-group">
+                                    <label>${field.label} ${field.required ? '*' : ''}</label>
+                                    <select id="field_${field.name}" ${required}>
+                                        <option value="">انتخاب کنید</option>
+                                        ${field.options.map(opt => `<option value="${opt}">${opt}</option>`).join('')}
+                                    </select>
+                                </div>
+                            `;
+                        } else {
+                            html += `
+                                <div class="form-group">
+                                    <label>${field.label} ${field.required ? '*' : ''}</label>
+                                    <input type="${field.type}" id="field_${field.name}" placeholder="${field.placeholder || ''}" ${required}>
+                                </div>
+                            `;
+                        }
+                    });
+                    
+                    html += `<button onclick="submitReport()" style="width: 100%; margin-top: 16px;">📤 ارسال گزارش</button>`;
+                    document.getElementById('formContainer').innerHTML = html;
+                    document.getElementById('dashboardPage').classList.add('hidden');
+                    document.getElementById('formPage').classList.remove('hidden');
+                } else {
+                    alert('فرم مورد نظر یافت نشد');
+                }
+            } catch (err) {
+                alert('خطا در دریافت فرم');
+            }
+        }
+        
+        // ارسال گزارش
+        async function submitReport() {
+            const formData = {};
+            const inputs = document.querySelectorAll('#formContainer input, #formContainer textarea, #formContainer select');
+            let isValid = true;
+            
+            inputs.forEach(input => {
+                const fieldName = input.id.replace('field_', '');
+                formData[fieldName] = input.value;
+                if (input.hasAttribute('required') && !input.value.trim()) {
+                    isValid = false;
+                    input.style.borderColor = '#F48771';
+                } else {
+                    input.style.borderColor = '';
+                }
+            });
+            
+            if (!isValid) {
+                alert('لطفاً تمام فیلدهای اجباری را پر کنید');
+                return;
+            }
+            
+            try {
+                const res = await fetch(getApiUrl() + '/api/reports', {
+                    method: 'POST',
+                    headers: {'Content-Type': 'application/json'},
+                    body: JSON.stringify({
+                        task_id: currentTask,
+                        user: currentUser.name,
+                        user_role: currentUser.role,
+                        form_type: 'maintenance_report',
+                        data: formData
+                    })
+                });
+                const result = await res.json();
+                
+                if (result.success) {
+                    alert('✅ گزارش با موفقیت ثبت شد');
+                    backToTasks();
+                    loadTasks();
+                } else {
+                    alert('❌ خطا در ثبت گزارش');
+                }
+            } catch (err) {
+                alert('❌ خطا در ارتباط با سرور');
+            }
+        }
+        
+        // بارگذاری تاریخچه گزارش‌ها
+        async function loadReportsHistory() {
+            const container = document.getElementById('tasksContainer');
+            container.innerHTML = '<div class="loading">در حال بارگذاری...</div>';
+            
+            try {
+                const res = await fetch(getApiUrl() + `/api/reports/history?username=${currentUser.username}`);
+                const data = await res.json();
+                
+                if (data.success && data.reports.length > 0) {
+                    container.innerHTML = data.reports.map(report => `
+                        <div class="task-card">
+                            <div class="task-title">📄 گزارش ${report.form_type === 'maintenance_report' ? 'تعمیرات' : 'تلفات'}</div>
+                            <div class="task-desc">تاریخ: ${new Date(report.submitted_at).toLocaleDateString('fa-IR')}</div>
+                            <div class="task-meta">
+                                <span>${Object.values(report.data).slice(0, 2).join(' | ')}</span>
+                            </div>
+                        </div>
+                    `).join('');
+                } else {
+                    container.innerHTML = '<div class="empty-state">📭 هیچ گزارشی ثبت نشده است</div>';
+                }
+            } catch (err) {
+                container.innerHTML = '<div class="empty-state">خطا در دریافت گزارش‌ها</div>';
+            }
+        }
+        
+        // تغییر تب
+        function switchTab(tab) {
+            currentTab = tab;
+            document.querySelectorAll('.tab').forEach((t, i) => {
+                if ((tab === 'pending' && i === 0) ||
+                    (tab === 'doing' && i === 1) ||
+                    (tab === 'done' && i === 2) ||
+                    (tab === 'reports' && i === 3)) {
+                    t.classList.add('active');
+                } else {
+                    t.classList.remove('active');
+                }
+            });
+            
+            if (tab === 'reports') {
+                loadReportsHistory();
+            } else {
+                renderTasks();
+            }
+        }
+        
+        // بازگشت به لیست وظایف
+        function backToTasks() {
+            document.getElementById('formPage').classList.add('hidden');
+            document.getElementById('dashboardPage').classList.remove('hidden');
+            loadTasks();
+        }
+        
+        // خروج
+        function logout() {
+            currentUser = null;
+            currentTask = null;
+            allTasks = [];
+            document.getElementById('dashboardPage').classList.add('hidden');
+            document.getElementById('loginPage').classList.remove('hidden');
+            document.getElementById('username').value = '';
+            document.getElementById('password').value = '';
+        }
+        
+        // امنیت HTML
+        function escapeHtml(str) {
+            if (!str) return '';
+            return str.replace(/[&<>]/g, function(m) {
+                if (m === '&') return '&amp;';
+                if (m === '<') return '&lt;';
+                if (m === '>') return '&gt;';
+                return m;
+            });
+        }
+        
+        // بررسی خودکار آدرس API
+        window.onload = function() {
+            getApiUrl();
+        }
+    </script>
+</body>
+</html>
