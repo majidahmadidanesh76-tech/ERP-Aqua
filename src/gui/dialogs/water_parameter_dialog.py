@@ -8,7 +8,6 @@ from .base_dialog import BaseDialog
 from src.core.models import WaterParameter
 from ...widgets.jalali_date_edit import JalaliDateEdit
 
-
 class WaterParameterDialog(BaseDialog):
     """دیالوگ ثبت یا ویرایش پارامترهای آب"""
 
