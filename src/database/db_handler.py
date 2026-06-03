@@ -30,7 +30,6 @@ class DatabaseHandler:
             mooring_rows = self.db.get_moorings_by_farm(farm.id)
             for m_row in mooring_rows:
                 mooring = Mooring(m_row['id'], m_row['name'])
-
                 buoy_rows = self.db.fetch_all("SELECT * FROM buoys WHERE mooring_id = %s", (mooring.id,))
                 for b_row in buoy_rows:
                     buoy = Buoy()
@@ -48,7 +47,6 @@ class DatabaseHandler:
                     buoy.status = b_row['status']
                     buoy.note = b_row['note'] or ''
                     mooring.buoys.append(buoy)
-
                 anchor_rows = self.db.fetch_all("SELECT * FROM anchors WHERE mooring_id = %s", (mooring.id,))
                 for a_row in anchor_rows:
                     anchor = Anchor()
@@ -65,7 +63,6 @@ class DatabaseHandler:
                     anchor.status = a_row['status']
                     anchor.note = a_row['note'] or ''
                     mooring.anchors.append(anchor)
-
                 cage_rows = self.db.fetch_all("SELECT * FROM cages WHERE mooring_id = %s", (mooring.id,))
                 for c_row in cage_rows:
                     cage = Cage()
@@ -80,7 +77,6 @@ class DatabaseHandler:
                     cage.status = c_row['status']
                     cage.note = c_row['note'] or ''
                     mooring.cages.append(cage)
-
                 farm.moorings.append(mooring)
             farms.append(farm)
         return farms
@@ -195,6 +191,13 @@ class DatabaseHandler:
             initial_weight, target_weight, target_fcr, note
         )
 
+    def update_production_cycle(self, cycle_id, start_date, species, initial_count,
+                                initial_weight, target_weight, note=""):
+        return self.db.update_production_cycle(
+            cycle_id, start_date, species, initial_count,
+            initial_weight, target_weight, note
+        )
+
     def get_active_cycle(self, cage_id):
         row = self.db.get_active_cycle(cage_id)
         if not row:
@@ -212,14 +215,37 @@ class DatabaseHandler:
         cycle.is_active = row['is_active']
         cycle.is_completed = row['is_completed']
         cycle.note = row['note'] or ''
-        # مقداردهی اولیه برای فیلدهای محاسباتی
         cycle.remaining_count = row['initial_count']
         cycle.total_harvested_count = 0
         cycle.total_harvested_kg = 0
         return cycle
 
+    def get_archived_cycles(self, cage_id):
+        rows = self.db.get_archived_cycles(cage_id)
+        from ..core.models import ProductionCycle
+        cycles = []
+        for row in rows:
+            cycle = ProductionCycle()
+            cycle.id = row['id']
+            cycle.cage_id = row['cage_id']
+            cycle.start_date = row['start_date']
+            cycle.species = row['species'] or ''
+            cycle.initial_count = row['initial_count']
+            cycle.initial_weight = row['initial_weight']
+            cycle.target_weight = row['target_weight']
+            cycle.target_fcr = row['target_fcr'] if row['target_fcr'] else 1.5
+            cycle.is_active = row['is_active']
+            cycle.is_completed = row['is_completed']
+            cycle.note = row['note'] or ''
+            cycles.append(cycle)
+        return cycles
+
     def complete_cycle(self, cycle_id):
         return self.db.complete_cycle(cycle_id)
+
+    def check_cycle_dependencies(self, cycle_id):
+        """بررسی اینکه آیا دوره دارای داده‌های وابسته است"""
+        return self.db.check_cycle_dependencies(cycle_id)
 
     # ==================== تغذیه ====================
 
@@ -290,7 +316,6 @@ class DatabaseHandler:
         return params
 
     def delete_water_parameter(self, param_id):
-        """حذف یک رکورد پارامتر آب از دیتابیس"""
         return self.db.execute_query("DELETE FROM water_parameters WHERE id = %s", (param_id,))
 
     # ==================== زیست توده ====================
@@ -315,7 +340,6 @@ class DatabaseHandler:
         return biomasses
 
     def delete_biomass(self, biomass_id):
-        """حذف یک رکورد زیست توده از دیتابیس"""
         return self.db.execute_query("DELETE FROM biomasses WHERE id = %s", (biomass_id,))
 
     # ==================== برداشت ====================
@@ -347,6 +371,9 @@ class DatabaseHandler:
             h.note = row['note'] or ''
             harvests.append(h)
         return harvests
+
+    def delete_harvest(self, harvest_id):
+        return self.db.execute_query("DELETE FROM harvests WHERE id = %s", (harvest_id,))
 
     def get_total_harvested_count(self, cycle_id):
         return self.db.get_total_harvested_count(cycle_id)

@@ -23,7 +23,6 @@ class DatabaseManager:
         self.connect()
 
     def connect(self):
-        """برقراری اتصال به دیتابیس"""
         try:
             self.connection = mysql.connector.connect(**DB_CONFIG)
             print("✅ اتصال به دیتابیس برقرار شد")
@@ -33,13 +32,11 @@ class DatabaseManager:
             return False
 
     def disconnect(self):
-        """بستن اتصال دیتابیس"""
         if self.connection and self.connection.is_connected():
             self.connection.close()
             print("✅ اتصال به دیتابیس بسته شد")
 
     def execute_query(self, query, params=None):
-        """اجرای کوئری (INSERT, UPDATE, DELETE)"""
         try:
             cursor = self.connection.cursor()
             cursor.execute(query, params or ())
@@ -51,7 +48,6 @@ class DatabaseManager:
             return False
 
     def fetch_all(self, query, params=None):
-        """دریافت همه نتایج یک کوئری SELECT"""
         try:
             cursor = self.connection.cursor(dictionary=True)
             cursor.execute(query, params or ())
@@ -63,19 +59,17 @@ class DatabaseManager:
             return []
 
     def fetch_one(self, query, params=None):
-        """دریافت یک نتیجه از کوئری SELECT"""
         results = self.fetch_all(query, params)
         return results[0] if results else None
 
     def get_last_insert_id(self):
-        """دریافت آخرین ID درج شده"""
         cursor = self.connection.cursor()
         cursor.execute("SELECT LAST_INSERT_ID()")
         result = cursor.fetchone()
         cursor.close()
         return result[0] if result else None
 
-    # ==================== عملیات مزرعه ====================
+    # ==================== مزرعه ====================
 
     def save_farm(self, farm_id, name, center_x=0, center_y=0):
         query = """
@@ -94,7 +88,7 @@ class DatabaseManager:
     def delete_farm(self, farm_id):
         return self.execute_query("DELETE FROM farms WHERE id = %s", (farm_id,))
 
-    # ==================== عملیات مورینگ ====================
+    # ==================== مورینگ ====================
 
     def save_mooring(self, mooring_id, farm_id, name=None):
         query = """
@@ -111,7 +105,7 @@ class DatabaseManager:
     def delete_mooring(self, mooring_id):
         return self.execute_query("DELETE FROM moorings WHERE id = %s", (mooring_id,))
 
-    # ==================== عملیات قفس ====================
+    # ==================== قفس ====================
 
     def save_cage(self, cage_id, mooring_id, diameter=10, material="فولاد", 
                   utm_x=0, utm_y=0, color="#569CD6", install_date="", status="سالم", note=""):
@@ -138,7 +132,7 @@ class DatabaseManager:
     def delete_cage(self, cage_id):
         return self.execute_query("DELETE FROM cages WHERE id = %s", (cage_id,))
 
-    # ==================== عملیات بویه ====================
+    # ==================== بویه ====================
 
     def save_buoy(self, buoy_id, mooring_id, buoy_type, utm_x, utm_y, color,
                   material, volume, install_date, has_light, body_color, status, note):
@@ -157,7 +151,7 @@ class DatabaseManager:
                                           color, material, volume, install_date,
                                           has_light, body_color, status, note))
 
-    # ==================== عملیات لنگر ====================
+    # ==================== لنگر ====================
 
     def save_anchor(self, anchor_id, mooring_id, anchor_type, utm_x, utm_y, weight,
                     color, material, install_date, install_depth, status, note):
@@ -175,7 +169,7 @@ class DatabaseManager:
                                           weight, color, material, install_date,
                                           install_depth, status, note))
 
-    # ==================== عملیات زنجیر لنگر ====================
+    # ==================== زنجیر لنگر ====================
 
     def save_anchor_chain(self, chain_id, mooring_id, start_id, end_id, start_x, start_y,
                           end_x, end_y, diameter, use_manual_start, use_manual_end,
@@ -199,7 +193,7 @@ class DatabaseManager:
                                           diameter, use_manual_start, use_manual_end,
                                           color, chain_type, material, install_date, status, note))
 
-    # ==================== عملیات طناب لنگر ====================
+    # ==================== طناب لنگر ====================
 
     def save_anchor_rope(self, rope_id, mooring_id, start_id, end_id, start_x, start_y,
                          end_x, end_y, material, diameter, use_manual_start, use_manual_end,
@@ -224,7 +218,7 @@ class DatabaseManager:
                                           material, diameter, use_manual_start, use_manual_end,
                                           color, strand_count, length, install_date, status, note))
 
-    # ==================== عملیات زنجیر بویه ====================
+    # ==================== زنجیر بویه ====================
 
     def save_buoy_chain(self, chain_id, mooring_id, buoy_id, collector_id, diameter,
                         length, material, chain_type, install_date, status, note):
@@ -242,7 +236,7 @@ class DatabaseManager:
                                           diameter, length, material, chain_type,
                                           install_date, status, note))
 
-    # ==================== عملیات شاکل ====================
+    # ==================== شاکل ====================
 
     def save_shackle(self, shackle_id, mooring_id, shackle_type, quantity, size,
                      capacity, material, connected_id, install_date, status, note):
@@ -260,7 +254,7 @@ class DatabaseManager:
                                           size, capacity, material, connected_id,
                                           install_date, status, note))
 
-    # ==================== عملیات طناب برایدل ====================
+    # ==================== طناب برایدل ====================
 
     def save_bridle_rope(self, bridle_id, mooring_id, buoy_id, cage_x, cage_y,
                          diameter, length, material, strand_count, install_date,
@@ -280,7 +274,7 @@ class DatabaseManager:
                                           diameter, length, material, strand_count,
                                           install_date, status, color, note))
 
-    # ==================== عملیات تور ====================
+    # ==================== تور ====================
 
     def save_net(self, net_id, mooring_id, cage_id, diameter, mesh_size,
                  material, depth, install_date, status, note):
@@ -297,7 +291,7 @@ class DatabaseManager:
         return self.execute_query(query, (net_id, mooring_id, cage_id, diameter, mesh_size,
                                           material, depth, install_date, status, note))
 
-    # ==================== عملیات کلکتور ====================
+    # ==================== کلکتور ====================
 
     def save_collector(self, collector_id, mooring_id, buoy_id, diameter, thickness,
                        depth, material, install_date, status, color, note):
@@ -315,7 +309,7 @@ class DatabaseManager:
                                           thickness, depth, material, install_date,
                                           status, color, note))
 
-    # ==================== عملیات دوره پرورش ====================
+    # ==================== دوره پرورش ====================
 
     def start_production_cycle(self, cage_id, start_date, species, initial_count, 
                                initial_weight, target_weight, target_fcr=1.5, note=""):
@@ -330,9 +324,26 @@ class DatabaseManager:
             return self.get_last_insert_id()
         return None
 
+    def update_production_cycle(self, cycle_id, start_date, species, initial_count,
+                                initial_weight, target_weight, note=""):
+        query = """
+            UPDATE production_cycles 
+            SET start_date = %s, species = %s, initial_count = %s, 
+                initial_weight = %s, target_weight = %s, note = %s
+            WHERE id = %s
+        """
+        return self.execute_query(query, (start_date, species, initial_count,
+                                          initial_weight, target_weight, note, cycle_id))
+
     def get_active_cycle(self, cage_id):
         return self.fetch_one(
             "SELECT * FROM production_cycles WHERE cage_id = %s AND is_active = 1 AND is_completed = 0",
+            (cage_id,)
+        )
+
+    def get_archived_cycles(self, cage_id):
+        return self.fetch_all(
+            "SELECT * FROM production_cycles WHERE cage_id = %s AND is_completed = 1 ORDER BY start_date DESC",
             (cage_id,)
         )
 
@@ -342,7 +353,31 @@ class DatabaseManager:
             (cycle_id,)
         )
 
-    # ==================== عملیات تغذیه ====================
+    def check_cycle_dependencies(self, cycle_id):
+        """بررسی اینکه آیا دوره دارای داده‌های وابسته است"""
+        biomass_count = self.fetch_one("SELECT COUNT(*) as count FROM biomasses WHERE cycle_id = %s", (cycle_id,))
+        if biomass_count and biomass_count['count'] > 0:
+            return False, "زیست توده"
+        
+        feed_count = self.fetch_one("SELECT COUNT(*) as count FROM feeds WHERE cycle_id = %s", (cycle_id,))
+        if feed_count and feed_count['count'] > 0:
+            return False, "تغذیه"
+        
+        mortality_count = self.fetch_one("SELECT COUNT(*) as count FROM mortalities WHERE cycle_id = %s", (cycle_id,))
+        if mortality_count and mortality_count['count'] > 0:
+            return False, "تلفات"
+        
+        water_count = self.fetch_one("SELECT COUNT(*) as count FROM water_parameters WHERE cycle_id = %s", (cycle_id,))
+        if water_count and water_count['count'] > 0:
+            return False, "پارامترهای آب"
+        
+        harvest_count = self.fetch_one("SELECT COUNT(*) as count FROM harvests WHERE cycle_id = %s", (cycle_id,))
+        if harvest_count and harvest_count['count'] > 0:
+            return False, "برداشت"
+        
+        return True, ""
+
+    # ==================== تغذیه ====================
 
     def save_feed(self, cage_id, cycle_id, date, feed_type, feed_amount, feed_time, note=""):
         query = """
@@ -362,7 +397,7 @@ class DatabaseManager:
             (cage_id,)
         )
 
-    # ==================== عملیات تلفات ====================
+    # ==================== تلفات ====================
 
     def save_mortality(self, cage_id, cycle_id, date, count, cause, note=""):
         query = """
@@ -382,7 +417,7 @@ class DatabaseManager:
             (cage_id,)
         )
 
-    # ==================== عملیات پارامترهای آب ====================
+    # ==================== پارامترهای آب ====================
 
     def save_water_parameter(self, cage_id, cycle_id, date, time, temperature, 
                             dissolved_oxygen, salinity, ph, note=""):
@@ -395,13 +430,12 @@ class DatabaseManager:
                                          dissolved_oxygen, salinity, ph, note))
     
     def get_water_parameters_by_cycle(self, cycle_id):
-        """دریافت پارامترهای آب برای یک دوره پرورش"""
         return self.fetch_all(
             "SELECT * FROM water_parameters WHERE cycle_id = %s ORDER BY date",
             (cycle_id,)
         )
 
-    # ==================== عملیات زیست توده ====================
+    # ==================== زیست توده ====================
 
     def save_biomass(self, cage_id, cycle_id, date, estimated_weight, estimated_count, sample_size, note=""):
         query = """
@@ -423,7 +457,7 @@ class DatabaseManager:
             (cage_id,)
         )
 
-    # ==================== عملیات برداشت ====================
+    # ==================== برداشت ====================
 
     def save_harvest(self, cage_id, cycle_id, harvest_date, harvest_count, average_weight,
                     total_weight_kg, customer, price_per_kg, total_amount, is_final, note=""):
