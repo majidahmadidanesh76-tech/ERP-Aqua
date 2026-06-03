@@ -1,14 +1,16 @@
 """
 دیالوگ ثبت زیست توده (تخمین وزن و تعداد ماهی) برای ERP-Aqua
-نسخه با محاسبه خودکار تعداد تخمینی از تلفات و برداشت (با دیتابیس)
+نسخه با محاسبه خودکار تعداد تخمینی از تلفات و برداشت
 """
+
+import json
+import os
 
 from PyQt5 import QtWidgets, QtCore
 
 from .base_dialog import BaseDialog
 from ...core.models import Biomass
 from ...widgets.jalali_date_edit import JalaliDateEdit
-from ...database.db_handler import DatabaseHandler
 
 class BiomassDialog(BaseDialog):
     def __init__(self, parent=None, farms=None, current_farm=None, current_mooring=None, 
@@ -19,33 +21,75 @@ class BiomassDialog(BaseDialog):
         self.biomass = biomass if biomass else Biomass()
         self.harvests = harvests if harvests else []
         self.default_initial_count = default_initial_count
-        self.db = DatabaseHandler()
-        self.current_cycle_id = None
-        
+        self.mortalities = []
+        self.previous_biomasses = []
+        self.load_mortality_data()
+        self.load_previous_biomasses()
         title = "ویرایش زیست توده" if biomass else "ثبت زیست توده"
         super().__init__(parent, title=title, edit_mode=biomass is not None, width=500, height=620)
         self.setup_ui()
 
+    def load_mortality_data(self):
+        self.mortalities = []
+        data_file = "aquaculture_data.json"
+        if not self.current_farm or not self.current_mooring:
+            return
+        key = f"{self.current_farm.id}_{self.current_mooring.id}"
+        if os.path.exists(data_file):
+            try:
+                with open(data_file, 'r', encoding='utf-8') as f:
+                    data = json.load(f)
+                    for item in data.get('mortalities', []):
+                        if item.get('key') == key:
+                            self.mortalities = item.get('mortalities', [])
+                            break
+            except:
+                pass
+
+    def load_previous_biomasses(self):
+        self.previous_biomasses = []
+        data_file = "aquaculture_data.json"
+        if not self.current_farm or not self.current_mooring:
+            return
+        key = f"{self.current_farm.id}_{self.current_mooring.id}"
+        if os.path.exists(data_file):
+            try:
+                with open(data_file, 'r', encoding='utf-8') as f:
+                    data = json.load(f)
+                    for item in data.get('biomasses', []):
+                        if item.get('key') == key:
+                            self.previous_biomasses = item.get('biomasses', [])
+                            break
+            except:
+                pass
+
+    def get_last_biomass(self, cage_id):
+        last = None
+        for b in self.previous_biomasses:
+            if b.get('cage_id') == cage_id:
+                if last is None or b.get('date', '') > last.get('date', ''):
+                    last = b
+        return last
+
     def get_total_mortality_and_harvest(self, cage_id):
-        """دریافت مجموع تلفات و برداشت برای قفس مشخص از دیتابیس"""
         total = 0
-        
-        # پیدا کردن cycle_id فعال برای این قفس
-        cycle = self.db.get_active_cycle(cage_id)
-        if cycle:
-            self.current_cycle_id = cycle.id
-            
-            # دریافت تلفات از دیتابیس
-            mortalities = self.db.get_mortalities_by_cycle(cycle.id)
-            for m in mortalities:
-                total += m.count
-            
-            # دریافت برداشت‌ها از دیتابیس
-            harvests = self.db.get_harvests_by_cycle(cycle.id)
-            for h in harvests:
-                total += h.harvest_count
-        
+        for m in self.mortalities:
+            if m.get('cage_id') == cage_id:
+                total += m.get('count', 0)
+        for h in self.harvests:
+            if hasattr(h, 'cage_id'):
+                if h.cage_id == cage_id:
+                    total += h.harvest_count
+            elif isinstance(h, dict):
+                if h.get('cage_id') == cage_id:
+                    total += h.get('harvest_count', 0)
         return total
+
+    def get_initial_count_from_previous(self, cage_id):
+        last_biomass = self.get_last_biomass(cage_id)
+        if last_biomass:
+            return last_biomass.get('initial_count', 0)
+        return 0
 
     def setup_ui(self):
         layout = QtWidgets.QFormLayout(self)
@@ -80,7 +124,10 @@ class BiomassDialog(BaseDialog):
             self.initial_count.setValue(self.biomass.initial_count)
         elif self.default_initial_count > 0:
             self.initial_count.setValue(self.default_initial_count)
-
+        else:
+            initial = self.get_initial_count_from_previous(self.cage_combo.currentData())
+            if initial > 0:
+                self.initial_count.setValue(initial)
         layout.addRow("تعداد اولیه (رهاسازی):", self.initial_count)
 
         self.sample_size = QtWidgets.QSpinBox()
@@ -127,6 +174,11 @@ class BiomassDialog(BaseDialog):
         self.calculate_estimated_count()
 
     def on_cage_changed(self):
+        cage_id = self.cage_combo.currentData()
+        if cage_id:
+            initial = self.get_initial_count_from_previous(cage_id)
+            if initial > 0 and self.initial_count.value() == 0:
+                self.initial_count.setValue(initial)
         self.calculate_estimated_count()
 
     def calculate_estimated_count(self):
@@ -138,7 +190,8 @@ class BiomassDialog(BaseDialog):
         estimated = initial - total_removed
         if estimated < 0:
             estimated = 0
-        self.estimated_count.setValue(estimated)
+        if hasattr(self, 'estimated_count'):
+            self.estimated_count.setValue(estimated)
 
     def validate_data(self):
         if not self.cage_combo.currentData():

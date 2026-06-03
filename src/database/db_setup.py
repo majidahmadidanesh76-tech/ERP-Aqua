@@ -393,6 +393,59 @@ def create_tables():
         """)
         print("✅ جدول harvests ایجاد شد")
 
+        # ==================== جداول برنامه‌ریزی تولید ====================
+
+        # 19. جدول گونه‌های ماهی (Fish Species)
+        cursor.execute("""
+            CREATE TABLE IF NOT EXISTS fish_species (
+                id INTEGER PRIMARY KEY AUTO_INCREMENT,
+                name VARCHAR(100) NOT NULL,
+                optimal_temp_min DECIMAL(4,1),
+                optimal_temp_max DECIMAL(4,1),
+                critical_temp_high DECIMAL(4,1),
+                target_fcr DECIMAL(3,2),
+                typical_harvest_weight INT,
+                avg_daily_gain DECIMAL(5,2),
+                description TEXT,
+                created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+            )
+        """)
+        print("✅ جدول fish_species ایجاد شد")
+
+        # 20. جدول برنامه‌های تولید (Production Plans)
+        cursor.execute("""
+            CREATE TABLE IF NOT EXISTS production_plans (
+                id INTEGER PRIMARY KEY AUTO_INCREMENT,
+                cage_id VARCHAR(50) NOT NULL,
+                species_id INT,
+                planned_stocking_date DATE,
+                planned_harvest_date DATE,
+                estimated_feed_required DECIMAL(10,2),
+                status VARCHAR(20) DEFAULT 'active',
+                created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                FOREIGN KEY (cage_id) REFERENCES cages(id) ON DELETE CASCADE,
+                FOREIGN KEY (species_id) REFERENCES fish_species(id) ON DELETE SET NULL
+            )
+        """)
+        print("✅ جدول production_plans ایجاد شد")
+
+        # 21. جدول وظایف روزانه (Daily Tasks)
+        cursor.execute("""
+            CREATE TABLE IF NOT EXISTS daily_tasks (
+                id INTEGER PRIMARY KEY AUTO_INCREMENT,
+                plan_id INT,
+                task_date DATE,
+                task_type VARCHAR(50),
+                assigned_to VARCHAR(100),
+                shift_time VARCHAR(50),
+                status VARCHAR(20) DEFAULT 'pending',
+                notes TEXT,
+                created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                FOREIGN KEY (plan_id) REFERENCES production_plans(id) ON DELETE CASCADE
+            )
+        """)
+        print("✅ جدول daily_tasks ایجاد شد")
+
         conn.commit()
         cursor.close()
         conn.close()
@@ -403,11 +456,41 @@ def create_tables():
         print(f"❌ خطا در ایجاد جداول: {e}")
         return False
 
+def insert_initial_data():
+    """درج داده‌های اولیه"""
+    try:
+        conn = mysql.connector.connect(**DB_CONFIG)
+        cursor = conn.cursor()
+
+        # درج داده‌های اولیه گونه‌های ماهی
+        cursor.execute("SELECT COUNT(*) as count FROM fish_species")
+        result = cursor.fetchone()
+        if result[0] == 0:
+            cursor.execute("""
+                INSERT INTO fish_species (name, optimal_temp_min, optimal_temp_max, critical_temp_high, 
+                                          target_fcr, typical_harvest_weight, avg_daily_gain, description)
+                VALUES 
+                ('ماهی آزاد دریای خزر (قزل‌آلای دریایی)', 8, 16, 25, 1.2, 2500, 3.5, 
+                 'گونه بومی دریای خزر - آب سرد - رشد بهینه در دمای 8-16 درجه'),
+                ('ماهی سی‌باس (بارموندی)', 27, 33, 38, 1.6, 1200, 2.8,
+                 'گونه مناسب برای آب‌های گرم جنوب - رشد بهینه در دمای 27-33 درجه')
+            """)
+            print("✅ داده‌های اولیه گونه‌های ماهی درج شد")
+
+        conn.commit()
+        cursor.close()
+        conn.close()
+        return True
+    except Error as e:
+        print(f"⚠️ خطا در درج داده‌های اولیه: {e}")
+        return False
+
 def setup_database():
     """راهاندازی کامل دیتابیس"""
     print("🚀 شروع راهاندازی دیتابیس...")
     if create_database():
         if create_tables():
+            insert_initial_data()
             print("✅ راهاندازی دیتابیس با موفقیت انجام شد")
         else:
             print("❌ خطا در ایجاد جداول")

@@ -1,5 +1,5 @@
 """
-صفحه مدیریت آبزیپروری - شامل هچری، نرسری و پرورش در دریا
+صفحه مدیریت آبزی پروری - شامل هچری، نرسری و پرورش در دریا
 نسخه دیتابیس - با ذخیره و بارگذاری صحیح دادهها
 """
 
@@ -176,7 +176,6 @@ class AquacultureManagementTab(QtWidgets.QWidget):
             QtWidgets.QMessageBox.warning(self, "خطا", "هیچ دوره فعالی برای ویرایش وجود ندارد")
             return
         
-        # بررسی وابستگی‌ها
         can_edit, dependent_table = self.db.check_cycle_dependencies(self.current_cycle.id)
         
         if not can_edit:
@@ -506,7 +505,43 @@ class AquacultureManagementTab(QtWidgets.QWidget):
                 QtWidgets.QMessageBox.warning(self, "خطا", "خطا در ثبت تغذیه")
 
     def edit_feed(self, index):
-        QtWidgets.QMessageBox.information(self, "اطلاع", "برای ویرایش، ابتدا رکورد را حذف و دوباره ثبت کنید")
+        """ویرایش تغذیه"""
+        if not self.current_cycle:
+            return
+        current_cage = self.cage_combo.currentData() if self.cage_combo.count() > 0 else None
+        if current_cage:
+            filtered = [f for f in self.feeds if f.cage_id == current_cage]
+        else:
+            filtered = self.feeds
+        if index >= len(filtered):
+            return
+        feed = filtered[index]
+        
+        dialog = FeedDialog(self, current_farm=self.current_farm, current_mooring=self.current_mooring, feed=feed)
+        if dialog.exec_():
+            # حذف رکورد قدیمی
+            if hasattr(feed, 'id') and feed.id:
+                self.db.execute_query("DELETE FROM feeds WHERE id = %s", (feed.id,))
+            # ذخیره رکورد جدید
+            result = self.db.save_feed(
+                self.current_cycle.cage_id,
+                self.current_cycle.id,
+                dialog.feed.date,
+                dialog.feed.feed_type,
+                dialog.feed.feed_amount,
+                dialog.feed.feed_time,
+                dialog.feed.note
+            )
+            if result:
+                self.load_current_data()
+                self.update_feed_table()
+                self.update_production_management_data()
+                if hasattr(self, 'growth_dashboard'):
+                    self.growth_dashboard.load_data()
+                    self.growth_dashboard.update_all_charts()
+                QtWidgets.QMessageBox.information(self, "موفق", "تغذیه ویرایش شد")
+            else:
+                QtWidgets.QMessageBox.warning(self, "خطا", "خطا در ویرایش تغذیه")
 
     def delete_feed(self, index):
         if QtWidgets.QMessageBox.question(self, "تأیید", "حذف شود؟") == QtWidgets.QMessageBox.Yes:
@@ -600,7 +635,42 @@ class AquacultureManagementTab(QtWidgets.QWidget):
                 QtWidgets.QMessageBox.warning(self, "خطا", "خطا در ثبت تلفات")
 
     def edit_mortality(self, index):
-        QtWidgets.QMessageBox.information(self, "اطلاع", "برای ویرایش، ابتدا رکورد را حذف و دوباره ثبت کنید")
+        """ویرایش تلفات"""
+        if not self.current_cycle:
+            return
+        current_cage = self.cage_combo.currentData() if self.cage_combo.count() > 0 else None
+        if current_cage:
+            filtered = [m for m in self.mortalities if m.cage_id == current_cage]
+        else:
+            filtered = self.mortalities
+        if index >= len(filtered):
+            return
+        mortality = filtered[index]
+        
+        dialog = MortalityDialog(self, current_farm=self.current_farm, current_mooring=self.current_mooring, mortality=mortality)
+        if dialog.exec_():
+            # حذف رکورد قدیمی
+            if hasattr(mortality, 'id') and mortality.id:
+                self.db.execute_query("DELETE FROM mortalities WHERE id = %s", (mortality.id,))
+            # ذخیره رکورد جدید
+            result = self.db.save_mortality(
+                self.current_cycle.cage_id,
+                self.current_cycle.id,
+                dialog.mortality.date,
+                dialog.mortality.count,
+                dialog.mortality.cause,
+                dialog.mortality.note
+            )
+            if result:
+                self.load_current_data()
+                self.update_mortality_table()
+                self.update_production_management_data()
+                if hasattr(self, 'growth_dashboard'):
+                    self.growth_dashboard.load_data()
+                    self.growth_dashboard.update_all_charts()
+                QtWidgets.QMessageBox.information(self, "موفق", "تلفات ویرایش شد")
+            else:
+                QtWidgets.QMessageBox.warning(self, "خطا", "خطا در ویرایش تلفات")
 
     def delete_mortality(self, index):
         if QtWidgets.QMessageBox.question(self, "تأیید", "حذف شود؟") == QtWidgets.QMessageBox.Yes:
@@ -695,6 +765,7 @@ class AquacultureManagementTab(QtWidgets.QWidget):
                 QtWidgets.QMessageBox.warning(self, "خطا", "خطا در ثبت پارامترهای آب")
 
     def edit_water_parameter(self, index):
+        """ویرایش پارامتر آب"""
         if not self.current_cycle:
             return
         current_cage = self.cage_combo.currentData() if self.cage_combo.count() > 0 else None
@@ -708,9 +779,10 @@ class AquacultureManagementTab(QtWidgets.QWidget):
         
         dialog = WaterParameterDialog(self, current_farm=self.current_farm, current_mooring=self.current_mooring, parameter=param)
         if dialog.exec_():
-            old_id = param.id if hasattr(param, 'id') and param.id else None
-            if old_id:
-                self.db.delete_water_parameter(old_id)
+            # حذف رکورد قدیمی
+            if hasattr(param, 'id') and param.id:
+                self.db.execute_query("DELETE FROM water_parameters WHERE id = %s", (param.id,))
+            # ذخیره رکورد جدید
             result = self.db.save_water_parameter(
                 self.current_cycle.cage_id,
                 self.current_cycle.id,
@@ -963,7 +1035,6 @@ class AquacultureManagementTab(QtWidgets.QWidget):
         layout = QtWidgets.QVBoxLayout(tab)
         layout.setSpacing(8)
 
-        # ========== نوار ابزار بالایی ==========
         toolbar = QtWidgets.QHBoxLayout()
         toolbar.setSpacing(8)
 
@@ -1016,7 +1087,7 @@ class AquacultureManagementTab(QtWidgets.QWidget):
         self.edit_cycle_btn.setStyleSheet("""
             QPushButton {
                 background-color: #D4A574;
-                color: white;
+                color: #1E1E1E;
                 font-weight: bold;
                 font-size: 12px;
                 border: none;
@@ -1033,7 +1104,7 @@ class AquacultureManagementTab(QtWidgets.QWidget):
         self.harvest_btn = QtWidgets.QPushButton("💰 ثبت برداشت")
         self.harvest_btn.setStyleSheet("""
             QPushButton {
-                background-color: #2E8B57;
+                background-color: #0E639C;
                 color: white;
                 font-weight: bold;
                 font-size: 12px;
@@ -1042,7 +1113,7 @@ class AquacultureManagementTab(QtWidgets.QWidget):
                 padding: 8px 16px;
             }
             QPushButton:hover {
-                background-color: #3CB371;
+                background-color: #1177BB;
             }
         """)
         self.harvest_btn.clicked.connect(self.add_harvest)
@@ -1066,22 +1137,70 @@ class AquacultureManagementTab(QtWidgets.QWidget):
         """
 
         self.add_biomass_btn = QtWidgets.QPushButton("📊 زیست توده")
-        self.add_biomass_btn.setStyleSheet("QPushButton { background-color: #4A4A3A; color: #C8C8C8; border: 1px solid #5A5A4A; border-radius: 4px; padding: 6px 12px; } QPushButton:hover { background-color: #5A5A4A; color: white; }")
+        self.add_biomass_btn.setStyleSheet("""
+            QPushButton {
+                background-color: #4A4A3A;
+                color: #C8C8C8;
+                border: 1px solid #5A5A4A;
+                border-radius: 4px;
+                padding: 6px 12px;
+            }
+            QPushButton:hover {
+                background-color: #5A5A4A;
+                color: white;
+            }
+        """)
         self.add_biomass_btn.clicked.connect(self.add_biomass)
         toolbar.addWidget(self.add_biomass_btn)
 
         self.add_feed_btn = QtWidgets.QPushButton("➕ تغذیه")
-        self.add_feed_btn.setStyleSheet("QPushButton { background-color: #3A3A4A; color: #C8C8C8; border: 1px solid #4A4A5A; border-radius: 4px; padding: 6px 12px; } QPushButton:hover { background-color: #4A4A5A; color: white; }")
+        self.add_feed_btn.setStyleSheet("""
+            QPushButton {
+                background-color: #3A3A4A;
+                color: #C8C8C8;
+                border: 1px solid #4A4A5A;
+                border-radius: 4px;
+                padding: 6px 12px;
+            }
+            QPushButton:hover {
+                background-color: #4A4A5A;
+                color: white;
+            }
+        """)
         self.add_feed_btn.clicked.connect(self.add_feed)
         toolbar.addWidget(self.add_feed_btn)
 
         self.add_mortality_btn = QtWidgets.QPushButton("⚠️ تلفات")
-        self.add_mortality_btn.setStyleSheet("QPushButton { background-color: #4A3A3A; color: #C8C8C8; border: 1px solid #5A4A4A; border-radius: 4px; padding: 6px 12px; } QPushButton:hover { background-color: #5A4A4A; color: white; }")
+        self.add_mortality_btn.setStyleSheet("""
+            QPushButton {
+                background-color: #4A3A3A;
+                color: #C8C8C8;
+                border: 1px solid #5A4A4A;
+                border-radius: 4px;
+                padding: 6px 12px;
+            }
+            QPushButton:hover {
+                background-color: #5A4A4A;
+                color: white;
+            }
+        """)
         self.add_mortality_btn.clicked.connect(self.add_mortality)
         toolbar.addWidget(self.add_mortality_btn)
 
         self.add_water_btn = QtWidgets.QPushButton("💧 پارامترهای آب")
-        self.add_water_btn.setStyleSheet("QPushButton { background-color: #3A4A4A; color: #C8C8C8; border: 1px solid #4A5A5A; border-radius: 4px; padding: 6px 12px; } QPushButton:hover { background-color: #4A5A5A; color: white; }")
+        self.add_water_btn.setStyleSheet("""
+            QPushButton {
+                background-color: #3A4A4A;
+                color: #C8C8C8;
+                border: 1px solid #4A5A5A;
+                border-radius: 4px;
+                padding: 6px 12px;
+            }
+            QPushButton:hover {
+                background-color: #4A5A5A;
+                color: white;
+            }
+        """)
         self.add_water_btn.clicked.connect(self.add_water_parameter)
         toolbar.addWidget(self.add_water_btn)
 
@@ -1112,7 +1231,6 @@ class AquacultureManagementTab(QtWidgets.QWidget):
             }
         """)
 
-        # زیست توده
         biomass_tab = QtWidgets.QWidget()
         biomass_layout = QtWidgets.QVBoxLayout(biomass_tab)
         biomass_toolbar = QtWidgets.QHBoxLayout()
@@ -1126,7 +1244,6 @@ class AquacultureManagementTab(QtWidgets.QWidget):
         biomass_layout.addWidget(self.biomass_table)
         self.inner_tabs.addTab(biomass_tab, "📊 زیست توده")
 
-        # تغذیه
         feed_tab = QtWidgets.QWidget()
         feed_layout = QtWidgets.QVBoxLayout(feed_tab)
         feed_toolbar = QtWidgets.QHBoxLayout()
@@ -1140,7 +1257,6 @@ class AquacultureManagementTab(QtWidgets.QWidget):
         feed_layout.addWidget(self.feed_table)
         self.inner_tabs.addTab(feed_tab, "🍽️ تغذیه")
 
-        # تلفات
         mortality_tab = QtWidgets.QWidget()
         mortality_layout = QtWidgets.QVBoxLayout(mortality_tab)
         mortality_toolbar = QtWidgets.QHBoxLayout()
@@ -1154,7 +1270,6 @@ class AquacultureManagementTab(QtWidgets.QWidget):
         mortality_layout.addWidget(self.mortality_table)
         self.inner_tabs.addTab(mortality_tab, "⚠️ تلفات")
 
-        # پارامترهای آب
         water_tab = QtWidgets.QWidget()
         water_layout = QtWidgets.QVBoxLayout(water_tab)
         water_toolbar = QtWidgets.QHBoxLayout()
@@ -1168,7 +1283,6 @@ class AquacultureManagementTab(QtWidgets.QWidget):
         water_layout.addWidget(self.water_table)
         self.inner_tabs.addTab(water_tab, "💧 پارامترهای آب")
 
-        # برداشتها
         harvest_tab = QtWidgets.QWidget()
         harvest_layout = QtWidgets.QVBoxLayout(harvest_tab)
         self.harvest_table = QtWidgets.QTableWidget()
@@ -1176,11 +1290,9 @@ class AquacultureManagementTab(QtWidgets.QWidget):
         harvest_layout.addWidget(self.harvest_table)
         self.inner_tabs.addTab(harvest_tab, "💰 برداشتها")
 
-        # مدیریت پرورش
         self.production_management_tab = ProductionManagementTab()
         self.inner_tabs.addTab(self.production_management_tab, "📊 شاخص‌های پرورش")
 
-        # داشبورد
         dashboard_tab = QtWidgets.QWidget()
         dashboard_layout = QtWidgets.QVBoxLayout(dashboard_tab)
         self.growth_dashboard = GrowthDashboard(self, self.current_farm, self.current_mooring)
