@@ -1,11 +1,12 @@
 """
 صفحه برنامهریزی تولید - شامل تقویم رشد و برنامه شیفتی و بودجهبندی سالانه
-نسخه با تاریخ میلادی و تبدیل شمسی برای نمایش
+نسخه کامل با اتصال به چارت سازمانی
 """
 
 from PyQt5 import QtWidgets, QtCore, QtGui
 import qtawesome as qta
 from ..database.db_handler import DatabaseHandler
+from ..widgets.jalali_date_edit import JalaliDateEdit
 from functools import partial
 from datetime import date, timedelta
 import math
@@ -95,24 +96,6 @@ class ProductionPlanningTab(QtWidgets.QWidget):
                     item = QtWidgets.QListWidgetItem(item_text)
                     item.setData(QtCore.Qt.UserRole, plan['id'])
                     self.plans_list.addItem(item)
-
-    def convert_miladi_to_shamsi(self, miladi_date):
-        """تبدیل تاریخ میلادی به شمسی برای نمایش"""
-        if not miladi_date:
-            return ""
-        try:
-            if isinstance(miladi_date, str):
-                parts = miladi_date.split('-')
-                if len(parts) == 3:
-                    d = date(int(parts[0]), int(parts[1]), int(parts[2]))
-                    shamsi = jdatetime.date.fromgregorian(date=d)
-                    return f"{shamsi.year}/{shamsi.month:02d}/{shamsi.day:02d}"
-            elif hasattr(miladi_date, 'year'):
-                shamsi = jdatetime.date.fromgregorian(date=miladi_date)
-                return f"{shamsi.year}/{shamsi.month:02d}/{shamsi.day:02d}"
-        except:
-            pass
-        return str(miladi_date)
 
     # ==================== توزیع هوشمند خوراک ====================
     
@@ -253,12 +236,8 @@ class ProductionPlanningTab(QtWidgets.QWidget):
         species_label.setStyleSheet(label_style)
         form_layout.addRow(species_label, self.species_combo)
 
-        # تاریخ رهاسازی (میلادی)
-        self.stocking_date = QtWidgets.QDateEdit()
-        self.stocking_date.setCalendarPopup(True)
-        self.stocking_date.setDate(QtCore.QDate.currentDate())
-        self.stocking_date.setStyleSheet("padding: 5px; background-color: #3C3C3C; border: 1px solid #2D2D30; border-radius: 4px; color: #C8C8C8;")
-        date_label = QtWidgets.QLabel("تاریخ رهاسازی (میلادی):")
+        self.stocking_date = JalaliDateEdit()
+        date_label = QtWidgets.QLabel("تاریخ رهاسازی:")
         date_label.setStyleSheet(label_style)
         form_layout.addRow(date_label, self.stocking_date)
 
@@ -312,7 +291,7 @@ class ProductionPlanningTab(QtWidgets.QWidget):
         result_label_style = "color: #C8C8C8; font-weight: normal;"
         result_value_style = "color: #4EC9B0; font-weight: bold; font-size: 13px;"
 
-        harvest_lbl = QtWidgets.QLabel("⏳ تاریخ تخمینی برداشت (میلادی):")
+        harvest_lbl = QtWidgets.QLabel("⏳ تاریخ تخمینی برداشت:")
         harvest_lbl.setStyleSheet(result_label_style)
         self.harvest_date_label = QtWidgets.QLabel("--")
         self.harvest_date_label.setStyleSheet(result_value_style)
@@ -320,37 +299,29 @@ class ProductionPlanningTab(QtWidgets.QWidget):
         result_layout.addWidget(harvest_lbl, 0, 0)
         result_layout.addWidget(self.harvest_date_label, 0, 1)
 
-        harvest_shamsi_lbl = QtWidgets.QLabel("📅 تاریخ تخمینی برداشت (شمسی):")
-        harvest_shamsi_lbl.setStyleSheet(result_label_style)
-        self.harvest_date_shamsi_label = QtWidgets.QLabel("--")
-        self.harvest_date_shamsi_label.setStyleSheet(result_value_style)
-        self.harvest_date_shamsi_label.setAlignment(QtCore.Qt.AlignRight)
-        result_layout.addWidget(harvest_shamsi_lbl, 0, 2)
-        result_layout.addWidget(self.harvest_date_shamsi_label, 0, 3)
-
         feed_lbl = QtWidgets.QLabel("🍽️ خوراک مورد نیاز (کل):")
         feed_lbl.setStyleSheet(result_label_style)
         self.feed_needed_label = QtWidgets.QLabel("--")
         self.feed_needed_label.setStyleSheet(result_value_style)
         self.feed_needed_label.setAlignment(QtCore.Qt.AlignRight)
-        result_layout.addWidget(feed_lbl, 1, 0)
-        result_layout.addWidget(self.feed_needed_label, 1, 1)
+        result_layout.addWidget(feed_lbl, 0, 2)
+        result_layout.addWidget(self.feed_needed_label, 0, 3)
 
         fcr_lbl = QtWidgets.QLabel("📊 ضریب تبدیل پیشبینی:")
         fcr_lbl.setStyleSheet(result_label_style)
         self.fcr_label = QtWidgets.QLabel("--")
         self.fcr_label.setStyleSheet(result_value_style)
         self.fcr_label.setAlignment(QtCore.Qt.AlignRight)
-        result_layout.addWidget(fcr_lbl, 1, 2)
-        result_layout.addWidget(self.fcr_label, 1, 3)
+        result_layout.addWidget(fcr_lbl, 1, 0)
+        result_layout.addWidget(self.fcr_label, 1, 1)
 
         growth_lbl = QtWidgets.QLabel("📈 نرخ رشد روزانه:")
         growth_lbl.setStyleSheet(result_label_style)
         self.growth_rate_label = QtWidgets.QLabel("--")
         self.growth_rate_label.setStyleSheet(result_value_style)
         self.growth_rate_label.setAlignment(QtCore.Qt.AlignRight)
-        result_layout.addWidget(growth_lbl, 2, 0)
-        result_layout.addWidget(self.growth_rate_label, 2, 1)
+        result_layout.addWidget(growth_lbl, 1, 2)
+        result_layout.addWidget(self.growth_rate_label, 1, 3)
 
         result_layout.setColumnStretch(1, 1)
         result_layout.setColumnStretch(3, 1)
@@ -410,7 +381,7 @@ class ProductionPlanningTab(QtWidgets.QWidget):
                     date_str = str(stocking_date)
                 
                 date_parts = date_str.split('-')
-                self.stocking_date.setDate(QtCore.QDate(int(date_parts[0]), int(date_parts[1]), int(date_parts[2])))
+                self.stocking_date.set_jalali_date(f"{int(date_parts[0])}/{int(date_parts[1])}/{int(date_parts[2])}")
                 self.initial_weight.setValue(50)
                 self.calculate_growth_forecast()
                 cursor2 = self.db.db.connection.cursor()
@@ -460,39 +431,58 @@ class ProductionPlanningTab(QtWidgets.QWidget):
             QtWidgets.QMessageBox.warning(self, "خطا", "نرخ رشد روزانه معتبر نیست")
             return
         days_needed = (target_weight - initial_weight) / daily_gain
-        harvest_date = self.stocking_date.date().addDays(int(days_needed))
+        
+        shamsi_date_str = self.stocking_date.get_jalali_date()
+        if shamsi_date_str:
+            parts = shamsi_date_str.split('/')
+            if len(parts) == 3:
+                shamsi_year = int(parts[0])
+                shamsi_month = int(parts[1])
+                shamsi_day = int(parts[2])
+                gregorian_date = jdatetime.date(shamsi_year, shamsi_month, shamsi_day).togregorian()
+                qdate = QtCore.QDate(gregorian_date.year, gregorian_date.month, gregorian_date.day)
+                harvest_date = qdate.addDays(int(days_needed))
+                harvest_gregorian = date(harvest_date.year(), harvest_date.month(), harvest_date.day())
+                harvest_jalali = jdatetime.date.fromgregorian(date=harvest_gregorian)
+                self.harvest_date_label.setText(f"{harvest_jalali.year}/{harvest_jalali.month:02d}/{harvest_jalali.day:02d}")
+            else:
+                self.harvest_date_label.setText("تاریخ نامعتبر")
+        else:
+            self.harvest_date_label.setText("تاریخ نامعتبر")
         
         weight_gain_kg = (target_weight - initial_weight) / 1000
         feed_needed = weight_gain_kg * target_fcr
-        
-        self.harvest_date_label.setText(harvest_date.toString("yyyy-MM-dd"))
-        
-        # تبدیل تاریخ برداشت به شمسی
-        try:
-            harvest_gregorian = date(harvest_date.year(), harvest_date.month(), harvest_date.day())
-            harvest_jalali = jdatetime.date.fromgregorian(date=harvest_gregorian)
-            self.harvest_date_shamsi_label.setText(f"{harvest_jalali.year}/{harvest_jalali.month:02d}/{harvest_jalali.day:02d}")
-        except:
-            self.harvest_date_shamsi_label.setText("خطا در تبدیل")
-        
         self.feed_needed_label.setText(f"{feed_needed:,.0f}")
         self.fcr_label.setText(f"{target_fcr}")
         self.growth_rate_label.setText(f"{daily_gain:.1f}")
         
+        if shamsi_date_str:
+            parts = shamsi_date_str.split('/')
+            if len(parts) == 3:
+                gregorian_date = jdatetime.date(int(parts[0]), int(parts[1]), int(parts[2])).togregorian()
+                stocking_date_miladi = gregorian_date.strftime("%Y-%m-%d")
+                harvest_gregorian = date(harvest_date.year(), harvest_date.month(), harvest_date.day())
+                harvest_date_miladi = harvest_gregorian.strftime("%Y-%m-%d")
+            else:
+                stocking_date_miladi = ""
+                harvest_date_miladi = ""
+        else:
+            stocking_date_miladi = ""
+            harvest_date_miladi = ""
+        
         self.current_forecast = {
             'species_id': species_id,
-            'stocking_date': self.stocking_date.date().toString("yyyy-MM-dd"),
-            'harvest_date': harvest_date.toString("yyyy-MM-dd"),
+            'stocking_date': stocking_date_miladi,
+            'harvest_date': harvest_date_miladi,
             'feed_needed': feed_needed,
             'target_weight': target_weight
         }
         self.save_plan_btn.setEnabled(True)
 
     def clear_input_fields(self):
-        self.stocking_date.setDate(QtCore.QDate.currentDate())
+        self.stocking_date.set_jalali_date("")
         self.initial_weight.setValue(50)
         self.harvest_date_label.setText("--")
-        self.harvest_date_shamsi_label.setText("--")
         self.feed_needed_label.setText("--")
         self.fcr_label.setText("--")
         self.growth_rate_label.setText("--")
@@ -635,6 +625,7 @@ class ProductionPlanningTab(QtWidgets.QWidget):
         return tab
 
     def load_daily_tasks(self):
+        """بارگذاری وظایف روزانه برای تاریخ انتخاب شده"""
         task_date = self.shift_date.date().toString("yyyy-MM-dd")
         tasks = self.db.get_daily_tasks_by_date(task_date)
         self.tasks_table.setRowCount(len(tasks))
@@ -716,6 +707,7 @@ class ProductionPlanningTab(QtWidgets.QWidget):
         self.done_tasks_label.setText(f"✅ انجام شده: {done}")
 
     def add_new_task(self):
+        """افزودن وظیفه جدید"""
         dialog = TaskDialog(self, self.shift_date.date().toString("yyyy-MM-dd"))
         if dialog.exec_():
             result = dialog.get_data()
@@ -790,7 +782,6 @@ class ProductionPlanningTab(QtWidgets.QWidget):
         title.setStyleSheet("font-size: 16px; font-weight: bold; color: #569CD6; padding: 10px;")
         layout.addWidget(title)
 
-        # انتخاب قفس و سال
         filter_layout = QtWidgets.QHBoxLayout()
         filter_layout.setSpacing(15)
 
@@ -815,7 +806,6 @@ class ProductionPlanningTab(QtWidgets.QWidget):
         filter_layout.addStretch()
         layout.addLayout(filter_layout)
 
-        # کارت‌های خلاصه مالی
         cards_layout = QtWidgets.QHBoxLayout()
         cards_layout.setSpacing(10)
 
@@ -830,7 +820,6 @@ class ProductionPlanningTab(QtWidgets.QWidget):
         cards_layout.addWidget(self.profit_margin_card)
         layout.addLayout(cards_layout)
 
-        # جدول بودجه ماهانه
         monthly_label = QtWidgets.QLabel("📅 بودجه ماهانه")
         monthly_label.setStyleSheet("font-size: 14px; font-weight: bold; color: #569CD6; margin-top: 10px;")
         layout.addWidget(monthly_label)
@@ -864,7 +853,6 @@ class ProductionPlanningTab(QtWidgets.QWidget):
         """)
         layout.addWidget(self.budget_table)
 
-        # ورودی‌های تنظیمات بودجه
         settings_group = QtWidgets.QGroupBox("⚙️ تنظیمات بودجه (اعداد به تومان)")
         settings_group.setStyleSheet("""
             QGroupBox {
@@ -1004,7 +992,6 @@ class ProductionPlanningTab(QtWidgets.QWidget):
                             if len(date_parts) == 3:
                                 year = int(date_parts[0])
                                 month = int(date_parts[1]) - 1
-                                
                                 if year == selected_year:
                                     revenue = total_weight_kg * fish_price_kg
                                     monthly_revenues[month] += revenue
@@ -1053,6 +1040,8 @@ class ProductionPlanningTab(QtWidgets.QWidget):
 
 
 class TaskDialog(QtWidgets.QDialog):
+    """دیالوگ افزودن/ویرایش وظیفه - با اتصال به چارت سازمانی"""
+
     def __init__(self, parent=None, default_date="", task=None):
         super().__init__(parent)
         self.setWindowTitle("➕ افزودن وظیفه جدید" if not task else "✏️ ویرایش وظیفه")
@@ -1106,9 +1095,21 @@ class TaskDialog(QtWidgets.QDialog):
         shift_lbl.setStyleSheet(label_style)
         layout.addRow(shift_lbl, self.shift_time)
 
-        self.assigned_to = QtWidgets.QLineEdit()
-        self.assigned_to.setPlaceholderText("نام مسئول")
+        # ========== مسئول (اتصال به چارت سازمانی) ==========
+        self.assigned_to = QtWidgets.QComboBox()
+        self.assigned_to.addItem("--- انتخاب کنید ---")
         self.assigned_to.setStyleSheet(input_style)
+        
+        # پر کردن از دیتابیس چارت سازمانی
+        try:
+            from ..database.db_handler import DatabaseHandler
+            db = DatabaseHandler()
+            personnel = db.db.fetch_all("SELECT id, name FROM org_personnel ORDER BY name")
+            for p in personnel:
+                self.assigned_to.addItem(p['name'], p['id'])
+        except Exception as e:
+            print(f"خطا در بارگذاری پرسنل: {e}")
+        
         assigned_lbl = QtWidgets.QLabel("مسئول:")
         assigned_lbl.setStyleSheet(label_style)
         layout.addRow(assigned_lbl, self.assigned_to)
@@ -1173,15 +1174,21 @@ class TaskDialog(QtWidgets.QDialog):
             if idx >= 0:
                 self.shift_time.setCurrentIndex(idx)
 
-            self.assigned_to.setText(self.task['assigned_to'])
-            self.notes.setText(self.task['notes'])
+            assigned_to = self.task.get('assigned_to', '')
+            if assigned_to:
+                index = self.assigned_to.findText(assigned_to)
+                if index >= 0:
+                    self.assigned_to.setCurrentIndex(index)
+            
+            self.notes.setText(self.task.get('notes', ''))
 
     def get_data(self):
         return {
             'date': self.date_edit.date().toString("yyyy-MM-dd"),
             'task_type': self.task_type.currentText(),
             'shift_time': self.shift_time.currentText(),
-            'assigned_to': self.assigned_to.text(),
+            'assigned_to': self.assigned_to.currentText(),
+            'assigned_to_id': self.assigned_to.currentData(),
             'priority': self.priority.currentText(),
             'notes': self.notes.toPlainText()
         }

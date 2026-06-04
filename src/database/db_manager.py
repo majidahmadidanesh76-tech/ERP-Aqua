@@ -1,6 +1,6 @@
 """
 مدیریت اتصال و عملیات دیتابیس MySQL برای ERP-Aqua
-نسخه کامل با همه متدها
+نسخه کامل با جداول چارت سازمانی
 """
 
 import mysql.connector
@@ -564,3 +564,55 @@ class DatabaseManager:
     def delete_species(self, species_id):
         """حذف گونه"""
         return self.execute_query("DELETE FROM fish_species WHERE id = %s", (species_id,))
+
+    # ==================== چارت سازمانی ====================
+
+    def get_all_org_units(self):
+        """دریافت تمام واحدهای سازمانی"""
+        return self.fetch_all("SELECT * FROM org_units ORDER BY level, id")
+
+    def get_all_org_personnel(self):
+        """دریافت تمام پرسنل سازمانی"""
+        return self.fetch_all("SELECT * FROM org_personnel")
+
+    def get_org_personnel_names(self):
+        """دریافت لیست اسامی پرسنل برای کامبوباکس"""
+        return self.fetch_all("SELECT id, name FROM org_personnel ORDER BY name")
+
+    def add_org_unit(self, name, position, parent_id=None, level=1, access_level=1):
+        query = """
+            INSERT INTO org_units (name, position, parent_id, level, access_level)
+            VALUES (%s, %s, %s, %s, %s)
+        """
+        return self.execute_query(query, (name, position, parent_id, level, access_level))
+
+    def add_org_personnel(self, name, position, unit_id, access_level=1):
+        query = """
+            INSERT INTO org_personnel (name, position, unit_id, access_level)
+            VALUES (%s, %s, %s, %s)
+        """
+        return self.execute_query(query, (name, position, unit_id, access_level))
+
+    def delete_org_unit(self, unit_id):
+        return self.execute_query("DELETE FROM org_units WHERE id = %s", (unit_id,))
+
+    def delete_org_personnel(self, personnel_id):
+        return self.execute_query("DELETE FROM org_personnel WHERE id = %s", (personnel_id,))
+
+    def update_org_unit(self, unit_id, name, position, access_level):
+        query = """
+            UPDATE org_units SET name = %s, position = %s, access_level = %s
+            WHERE id = %s
+        """
+        return self.execute_query(query, (name, position, access_level, unit_id))
+
+    def update_org_personnel(self, personnel_id, name, position, access_level):
+        query = """
+            UPDATE org_personnel SET name = %s, position = %s, access_level = %s
+            WHERE id = %s
+        """
+        return self.execute_query(query, (name, position, access_level, personnel_id))
+
+    def get_personnel_by_name(self, name):
+        """دریافت اطلاعات یک پرسنل بر اساس نام"""
+        return self.fetch_one("SELECT * FROM org_personnel WHERE name = %s", (name,))
