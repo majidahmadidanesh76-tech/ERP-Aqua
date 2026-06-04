@@ -1,0 +1,28 @@
+[
+  {
+    "id": 1,
+    "task_id": 1,
+    "user": "احمدی",
+    "form_type": "maintenance_report",
+    "data": {
+      "equipment": "قفس ۱",
+      "issue": "خرابی لوله",
+      "action_taken": "تعمیر شد",
+      "cost": "10000"
+    },
+    "submitted_at": "2026-06-04T02:38:00.053113"
+  },
+  {
+    "id": 2,
+    "task_id": 4,
+    "user": "احمدی",
+    "form_type": "maintenance_report",
+    "data": {
+      "equipment": "خرابی پروانه",
+      "issue": "انجام شد",
+      "action_taken": "تعویض پروانه",
+      "cost": "30000"
+    },
+    "submitted_at": "2026-06-04T02:38:29.385396"
+  }
+]

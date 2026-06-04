@@ -1,0 +1,26 @@
+[
+  {
+    "id": 1,
+    "username": "tech1",
+    "password": "81dc9bdb52d04dc20036dbd8313ed055",
+    "name": "احمدی",
+    "role": "technician",
+    "role_name": "تکنسین تعمیرات"
+  },
+  {
+    "id": 2,
+    "username": "op1",
+    "password": "81dc9bdb52d04dc20036dbd8313ed055",
+    "name": "کریمی",
+    "role": "operator",
+    "role_name": "اپراتور پرورش"
+  },
+  {
+    "id": 3,
+    "username": "manager",
+    "password": "81dc9bdb52d04dc20036dbd8313ed055",
+    "name": "مدیر",
+    "role": "manager",
+    "role_name": "مدیر مزرعه"
+  }
+]

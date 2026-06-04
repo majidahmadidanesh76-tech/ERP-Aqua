@@ -1,6 +1,7 @@
 """
 پنجره اصلی برنامه ERP-Aqua
 شامل منوی افقی، سایدبار و استک ویجت صفحات
+نسخه با ساختار سازمانی (حذف داشبورد قدیمی)
 """
 
 from PyQt5 import QtWidgets, QtCore, QtGui
@@ -9,7 +10,7 @@ import os
 import sys
 
 from .styles import STYLE
-from .dashboard import DashboardPage
+from .org_chart_widget import OrgChartWidget
 from .farm_tab import FarmDesignTab
 from .production_planning_tab import ProductionPlanningTab
 from ..core.constants import APP_NAME, APP_VERSION
@@ -34,7 +35,7 @@ class MainWindow(QtWidgets.QMainWindow):
         print(f"نتیجه دیالوگ لاگین: {result}")
 
         if not result:
-            print("کاربر لاگین نکرد، برنامه بسته می‌شود")
+            print("کاربر لاگین نکرد، برنامه بسته میشود")
             sys.exit(0)
 
         self.current_user = login_dialog.get_current_user()
@@ -86,6 +87,18 @@ class MainWindow(QtWidgets.QMainWindow):
             }
         """)
 
+        # ========== منوی ساختار سازمانی ==========
+        org_menu = menubar.addMenu("ساختار سازمانی")
+        org_action = org_menu.addAction("🏢 ساختار سازمانی")
+        org_action.triggered.connect(lambda: self.stacked.setCurrentIndex(0))
+        
+        org_menu.addSeparator()
+        add_personnel_action = org_menu.addAction("➕ افزودن پرسنل جدید")
+        add_personnel_action.triggered.connect(self.add_personnel)
+        
+        org_menu.addAction("✏️ ویرایش ساختار")
+        org_menu.addSeparator()
+
         # ========== منوی صفحه اصلی ==========
         home_menu = menubar.addMenu("صفحه اصلی")
         dashboard_action = home_menu.addAction("داشبورد")
@@ -114,12 +127,12 @@ class MainWindow(QtWidgets.QMainWindow):
         design_menu = menubar.addMenu("طراحی مزرعه")
         design_action = design_menu.addAction("طراحی مزرعه")
 
-        # ========== منوی برنامه‌ریزی تولید ==========
-        planning_menu = menubar.addMenu("برنامه‌ریزی تولید")
+        # ========== منوی برنامهریزی تولید ==========
+        planning_menu = menubar.addMenu("برنامهریزی تولید")
         growth_action = planning_menu.addAction("📅 تقویم رشد")
-        shift_action = planning_menu.addAction("🧑‍🌾 برنامه شیفتی")
+        shift_action = planning_menu.addAction("🧑🌾 برنامه شیفتی")
         planning_menu.addSeparator()
-        budget_action = planning_menu.addAction("📊 بودجه‌بندی سالانه")
+        budget_action = planning_menu.addAction("📊 بودجهبندی سالانه")
 
         # اتصال به صفحات
         growth_action.triggered.connect(lambda: self.open_planning_section(0))
@@ -154,7 +167,6 @@ class MainWindow(QtWidgets.QMainWindow):
         sales_menu.addAction("گزارش فروش")
 
         # اتصال منوها به صفحات
-        dashboard_action.triggered.connect(lambda: self.stacked.setCurrentIndex(0))
         design_action.triggered.connect(lambda: self.stacked.setCurrentIndex(1))
         growth_action.triggered.connect(lambda: self.stacked.setCurrentIndex(2))
 
@@ -171,14 +183,14 @@ class MainWindow(QtWidgets.QMainWindow):
         # ویجت نمایش شرکت (لوگو + نام)
         self.setup_company_widget(sidebar_layout)
 
-        # دکمه‌های منوی سایدبار
+        # دکمههای منوی سایدبار
         menu_items = [
-            ("صفحه اصلی", 0, 'fa5s.home'),
-            ("طراحی مزرعه", 1, 'fa5s.map-marked-alt'),
-            ("برنامه‌ریزی تولید", 2, 'fa5s.calendar-alt'),
-            ("مدیریت آبزی پروری", 3, 'fa5s.fish'),
-            ("نظارت", 4, 'fa5s.chart-line'),
-            ("فروش و سفارشات", 5, 'fa5s.shopping-cart')
+            ("🏢 ساختار سازمانی", 0, 'fa5s-sitemap'),
+            ("🗺️ طراحی مزرعه", 1, 'fa5s-map-marked-alt'),
+            ("📅 برنامهریزی تولید", 2, 'fa5s-calendar-alt'),
+            ("🐟 مدیریت آبزی پروری", 3, 'fa5s-fish'),
+            ("📊 نظارت", 4, 'fa5s-chart-line'),
+            ("🛒 فروش و سفارشات", 5, 'fa5s-shopping-cart')
         ]
 
         self.stacked = QtWidgets.QStackedWidget()
@@ -190,9 +202,9 @@ class MainWindow(QtWidgets.QMainWindow):
             btn.setFixedHeight(35)
             btn.setCursor(QtGui.QCursor(QtCore.Qt.PointingHandCursor))
 
-            if text == "مدیریت آبزی پروری":
+            if text == "🐟 مدیریت آبزی پروری":
                 btn.clicked.connect(lambda: self.open_aquaculture_section(0))
-            elif text == "برنامه‌ریزی تولید":
+            elif text == "📅 برنامهریزی تولید":
                 btn.clicked.connect(lambda: self.open_planning_section(0))
             else:
                 btn.clicked.connect(lambda _, i=idx: self.stacked.setCurrentIndex(i))
@@ -201,7 +213,7 @@ class MainWindow(QtWidgets.QMainWindow):
 
         # ========== ویجت نمایش کاربر جاری ==========
         sidebar_layout.addStretch()
-        
+
         user_frame = QtWidgets.QFrame()
         user_frame.setStyleSheet("""
             QFrame {
@@ -214,25 +226,25 @@ class MainWindow(QtWidgets.QMainWindow):
         """)
         user_layout = QtWidgets.QVBoxLayout(user_frame)
         user_layout.setSpacing(5)
-        
+
         user_icon = QtWidgets.QLabel("👤")
         user_icon.setAlignment(QtCore.Qt.AlignCenter)
         user_icon.setStyleSheet("font-size: 20px;")
         user_layout.addWidget(user_icon)
-        
+
         user_name = self.current_user['name'] if self.current_user else 'کاربر'
         user_name_label = QtWidgets.QLabel(user_name)
         user_name_label.setAlignment(QtCore.Qt.AlignCenter)
         user_name_label.setStyleSheet("color: #569CD6; font-size: 12px; font-weight: bold;")
         user_layout.addWidget(user_name_label)
-        
+
         user_role = self.current_user['role'] if self.current_user else 'user'
         role_text = "مدیر سیستم" if user_role == "admin" else "کاربر عادی"
         user_role_label = QtWidgets.QLabel(role_text)
         user_role_label.setAlignment(QtCore.Qt.AlignCenter)
         user_role_label.setStyleSheet("color: #C8C8C8; font-size: 10px;")
         user_layout.addWidget(user_role_label)
-        
+
         sidebar_layout.addWidget(user_frame)
 
         parent_layout.addWidget(sidebar)
@@ -261,15 +273,15 @@ class MainWindow(QtWidgets.QMainWindow):
 
     def setup_pages(self, parent_layout):
         """تنظیم صفحات اصلی برنامه"""
-        # صفحه 0: داشبورد
-        self.dashboard_page = DashboardPage()
-        self.stacked.addWidget(self.dashboard_page)
+        # صفحه 0: ساختار سازمانی (جایگزین داشبورد)
+        self.org_chart_page = OrgChartWidget()
+        self.stacked.addWidget(self.org_chart_page)
 
         # صفحه 1: طراحی مزرعه
         self.design_page = FarmDesignTab()
         self.stacked.addWidget(self.design_page)
 
-        # صفحه 2: برنامه‌ریزی تولید
+        # صفحه 2: برنامهریزی تولید
         self.planning_tab = ProductionPlanningTab()
         self.stacked.addWidget(self.planning_tab)
 
@@ -305,7 +317,7 @@ class MainWindow(QtWidgets.QMainWindow):
                     )
 
     def open_planning_section(self, index=0):
-        """باز کردن صفحه برنامه‌ریزی تولید با تب انتخابی"""
+        """باز کردن صفحه برنامهریزی تولید با تب انتخابی"""
         if hasattr(self, 'planning_tab'):
             self.stacked.setCurrentWidget(self.planning_tab)
             if hasattr(self.planning_tab, 'tabs'):
@@ -347,3 +359,7 @@ class MainWindow(QtWidgets.QMainWindow):
     def manage_users(self):
         dialog = ManageUsersDialog(self)
         dialog.exec_()
+
+    def add_personnel(self):
+        """افزودن پرسنل جدید (نمایش پیام موقت)"""
+        QtWidgets.QMessageBox.information(self, "در حال توسعه", "بخش مدیریت پرسنل در حال توسعه است...")
