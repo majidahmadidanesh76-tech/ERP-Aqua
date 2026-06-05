@@ -1,6 +1,6 @@
 """
 داشبورد تحلیلی پرورش با استفاده از PyQtGraph
-نسخه با ارتفاع تنظیم شده
+نسخه با ارتفاع تنظیم شده - تاریخ‌ها از راست به چپ
 """
 
 from PyQt5 import QtWidgets, QtCore
@@ -326,15 +326,17 @@ class PyQtDashboard(QtWidgets.QWidget):
         for b in biomasses:
             dates_num.append(self.persian_date_to_number(b.date))
             dates_str.append(b.date)
-        
+
         weights = [b.estimated_weight for b in biomasses]
         counts = [b.estimated_count for b in biomasses]
 
         self.growth_plot.plot(dates_num, weights, pen=pg.mkPen(color='#569CD6', width=2), symbol='o', symbolBrush='#569CD6', symbolSize=6)
-        
+
         if len(dates_num) > 0:
             axis = self.growth_plot.getAxis('bottom')
-            axis.setTicks([[(dates_num[i], dates_str[i]) for i in range(len(dates_num))]])
+            # معکوس کردن لیست برای نمایش از راست به چپ
+            reversed_ticks = [(dates_num[i], dates_str[i]) for i in range(len(dates_num)-1, -1, -1)]
+            axis.setTicks([reversed_ticks])
 
         if weights:
             avg_weight = sum(weights) / len(weights)
@@ -366,15 +368,17 @@ class PyQtDashboard(QtWidgets.QWidget):
         for f in feeds:
             dates_num.append(self.persian_date_to_number(f.date))
             dates_str.append(f.date)
-        
+
         amounts = [f.feed_amount for f in feeds]
 
         bg = pg.BarGraphItem(x=dates_num, height=amounts, width=1.0, brush='#4CAF50')
         self.feed_plot.addItem(bg)
-        
+
         if len(dates_num) > 0:
             axis = self.feed_plot.getAxis('bottom')
-            axis.setTicks([[(dates_num[i], dates_str[i]) for i in range(len(dates_num))]])
+            # معکوس کردن لیست برای نمایش از راست به چپ
+            reversed_ticks = [(dates_num[i], dates_str[i]) for i in range(len(dates_num)-1, -1, -1)]
+            axis.setTicks([reversed_ticks])
 
         total_feed = sum(amounts)
         self.total_feed_label.setText(f"کل خوراک: {total_feed:.0f} kg")
@@ -400,14 +404,16 @@ class PyQtDashboard(QtWidgets.QWidget):
         for m in mortalities:
             dates_num.append(self.persian_date_to_number(m.date))
             dates_str.append(m.date)
-        
+
         counts = [m.count for m in mortalities]
 
         self.mortality_plot.plot(dates_num, counts, pen=pg.mkPen(color='#F48771', width=2), symbol='o', symbolBrush='#F48771', symbolSize=6)
-        
+
         if len(dates_num) > 0:
             axis = self.mortality_plot.getAxis('bottom')
-            axis.setTicks([[(dates_num[i], dates_str[i]) for i in range(len(dates_num))]])
+            # معکوس کردن لیست برای نمایش از راست به چپ
+            reversed_ticks = [(dates_num[i], dates_str[i]) for i in range(len(dates_num)-1, -1, -1)]
+            axis.setTicks([reversed_ticks])
 
         total_mortality = sum(counts)
         self.total_mortality_label.setText(f"کل تلفات: {total_mortality}")
@@ -430,15 +436,17 @@ class PyQtDashboard(QtWidgets.QWidget):
         for w in water_params:
             dates_num.append(self.persian_date_to_number(w.date))
             dates_str.append(w.date)
-        
+
         temps = [w.temperature for w in water_params]
         oxygen = [w.dissolved_oxygen for w in water_params]
 
         self.water_plot.plot(dates_num, temps, pen=pg.mkPen(color='#FF5722', width=2), symbol='o', name='دما', symbolSize=6)
         self.water_plot.plot(dates_num, oxygen, pen=pg.mkPen(color='#4CAF50', width=2), symbol='s', name='اکسیژن', symbolSize=6)
-        
+
         if len(dates_num) > 0:
             axis = self.water_plot.getAxis('bottom')
-            axis.setTicks([[(dates_num[i], dates_str[i]) for i in range(len(dates_num))]])
+            # معکوس کردن لیست برای نمایش از راست به چپ
+            reversed_ticks = [(dates_num[i], dates_str[i]) for i in range(len(dates_num)-1, -1, -1)]
+            axis.setTicks([reversed_ticks])
 
         self.water_plot.addLegend()

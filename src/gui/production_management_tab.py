@@ -5,7 +5,6 @@
 
 from PyQt5 import QtWidgets, QtCore
 
-
 class ProductionManagementTab(QtWidgets.QWidget):
     def __init__(self, parent=None):
         super().__init__(parent)
@@ -31,7 +30,7 @@ class ProductionManagementTab(QtWidgets.QWidget):
         self.harvests = harvests
         self.production_cycle = cycle
 
-        # ذخیره همه قفس‌ها
+        # ذخیره همه قفسها
         if self.current_mooring:
             self.all_cages = [c.id for c in self.current_mooring.cages]
 
@@ -39,10 +38,10 @@ class ProductionManagementTab(QtWidgets.QWidget):
         self.update_all()
 
     def update_cage_combo(self):
-        """به‌روزرسانی لیست قفس‌ها در کامبوباکس"""
+        """به‌روزرسانی لیست قفسها در کامبوباکس"""
         if hasattr(self, 'cage_filter_combo'):
             self.cage_filter_combo.clear()
-            self.cage_filter_combo.addItem("🌊 همه قفس‌ها", None)
+            self.cage_filter_combo.addItem("🌊 همه قفسها", None)
             for cage_id in self.all_cages:
                 self.cage_filter_combo.addItem(f"📦 قفس {cage_id}", cage_id)
 
@@ -60,11 +59,11 @@ class ProductionManagementTab(QtWidgets.QWidget):
         # ========== انتخاب قفس ==========
         filter_layout = QtWidgets.QHBoxLayout()
         filter_layout.setSpacing(8)
-        
-        filter_label = QtWidgets.QLabel("نمایش شاخص‌ها برای:")
+
+        filter_label = QtWidgets.QLabel("نمایش شاخصها برای:")
         filter_label.setStyleSheet("color: #C8C8C8; font-size: 12px;")
         filter_layout.addWidget(filter_label)
-        
+
         self.cage_filter_combo = QtWidgets.QComboBox()
         self.cage_filter_combo.setMinimumWidth(150)
         self.cage_filter_combo.setStyleSheet("""
@@ -81,7 +80,7 @@ class ProductionManagementTab(QtWidgets.QWidget):
         """)
         self.cage_filter_combo.currentIndexChanged.connect(self.on_cage_filter_changed)
         filter_layout.addWidget(self.cage_filter_combo)
-        
+
         filter_layout.addStretch()
         layout.addLayout(filter_layout)
 
@@ -92,19 +91,19 @@ class ProductionManagementTab(QtWidgets.QWidget):
 
         self.fcr_card = self.create_kpi_card("FCR", "--", "ضریب تبدیل", "#569CD6")
         cards_layout.addWidget(self.fcr_card)
-        
+
         self.sgr_card = self.create_kpi_card("SGR", "-- %/روز", "نرخ رشد ویژه", "#4EC9B0")
         cards_layout.addWidget(self.sgr_card)
-        
+
         self.survival_card = self.create_kpi_card("نرخ بقا", "-- %", "تعداد باقیمانده / اولیه", "#DCDCAA")
         cards_layout.addWidget(self.survival_card)
 
         self.biomass_card = self.create_kpi_card("زیستتوده", "-- kg", "وزن تخمینی کل", "#CE9178")
         cards_layout.addWidget(self.biomass_card)
-        
+
         self.fcr_target_card = self.create_kpi_card("هدف FCR", "--", "هدف تعیین شده", "#808080")
         cards_layout.addWidget(self.fcr_target_card)
-        
+
         self.weight_target_card = self.create_kpi_card("وزن هدف", "-- گرم", "هدف تعیین شده", "#808080")
         cards_layout.addWidget(self.weight_target_card)
 
@@ -160,30 +159,29 @@ class ProductionManagementTab(QtWidgets.QWidget):
             }
         """)
         layout.addWidget(self.alerts_text)
-        
+
         layout.addStretch()
 
     def on_cage_filter_changed(self):
-        """تغییر قفس انتخاب شده - به‌روزرسانی شاخص‌ها"""
+        """تغییر قفس انتخاب شده - به‌روزرسانی شاخصها"""
         self.update_all()
 
     def get_filtered_data(self):
-        """دریافت داده‌های فیلتر شده بر اساس قفس انتخاب شده"""
+        """دریافت دادههای فیلتر شده بر اساس قفس انتخاب شده"""
         selected_cage = self.cage_filter_combo.currentData()
-        
-        if selected_cage is None:  # همه قفس‌ها
+
+        if selected_cage is None:  # همه قفسها
             return self.feeds, self.mortalities, self.biomasses, self.harvests, self.production_cycle
-        
+
         # فیلتر بر اساس قفس انتخاب شده
-        filtered_feeds = [f for f in self.feeds if f.cage_id == selected_cage]
-        filtered_mortalities = [m for m in self.mortalities if m.cage_id == selected_cage]
-        filtered_biomasses = [b for b in self.biomasses if b.cage_id == selected_cage]
-        filtered_harvests = [h for h in self.harvests if h.cage_id == selected_cage]
-        
+        filtered_feeds = [f for f in self.feeds if str(f.cage_id) == str(selected_cage)]
+        filtered_mortalities = [m for m in self.mortalities if str(m.cage_id) == str(selected_cage)]
+        filtered_biomasses = [b for b in self.biomasses if str(b.cage_id) == str(selected_cage)]
+        filtered_harvests = [h for h in self.harvests if str(h.cage_id) == str(selected_cage)]
+
         # برای cycle باید بررسی کنیم که آیا برای این قفس دوره فعال وجود دارد
-        # در حال حاضر از cycle موجود استفاده می‌کنیم، اما بهتر است از دیتابیس بگیریم
-        filtered_cycle = self.production_cycle if self.production_cycle and self.production_cycle.cage_id == selected_cage else None
-        
+        filtered_cycle = self.production_cycle if self.production_cycle and str(self.production_cycle.cage_id) == str(selected_cage) else None
+
         return filtered_feeds, filtered_mortalities, filtered_biomasses, filtered_harvests, filtered_cycle
 
     def create_kpi_card(self, title, default_value, subtitle, color):
@@ -196,7 +194,7 @@ class ProductionManagementTab(QtWidgets.QWidget):
                 border-radius: 6px;
             }}
         """)
-        
+
         layout = QtWidgets.QVBoxLayout(card)
         layout.setContentsMargins(4, 4, 4, 4)
         layout.setSpacing(2)
@@ -229,7 +227,7 @@ class ProductionManagementTab(QtWidgets.QWidget):
 
     def update_all(self):
         feeds, mortalities, biomasses, harvests, cycle = self.get_filtered_data()
-        
+
         if not cycle:
             self.show_empty_state()
             return
@@ -264,37 +262,44 @@ class ProductionManagementTab(QtWidgets.QWidget):
         if not cycle:
             return
 
+        # تبدیل به float برای جلوگیری از خطای Decimal
+        initial_weight = float(cycle.initial_weight) if hasattr(cycle.initial_weight, '__float__') else float(cycle.initial_weight)
+        initial_count = float(cycle.initial_count) if hasattr(cycle.initial_count, '__float__') else float(cycle.initial_count)
+        target_weight = float(cycle.target_weight) if hasattr(cycle.target_weight, '__float__') else float(cycle.target_weight)
+
         # زیستتوده فعلی
         if biomasses:
             last_biomass = biomasses[-1]
-            current_biomass_kg = (last_biomass.estimated_weight * last_biomass.estimated_count) / 1000
+            current_weight = float(last_biomass.estimated_weight) if hasattr(last_biomass.estimated_weight, '__float__') else float(last_biomass.estimated_weight)
+            current_count = float(last_biomass.estimated_count) if hasattr(last_biomass.estimated_count, '__float__') else float(last_biomass.estimated_count)
+            current_biomass_kg = (current_weight * current_count) / 1000
             self.biomass_card.value_label.setText(f"{current_biomass_kg:,.0f}")
         else:
-            current_biomass_kg = (cycle.initial_weight * cycle.initial_count) / 1000
+            current_biomass_kg = (initial_weight * initial_count) / 1000
             self.biomass_card.value_label.setText(f"{current_biomass_kg:,.0f}*")
 
         # نرخ بقا
-        remaining_count = cycle.initial_count
+        remaining_count = initial_count
         if biomasses:
-            remaining_count = biomasses[-1].estimated_count
+            remaining_count = float(biomasses[-1].estimated_count) if hasattr(biomasses[-1].estimated_count, '__float__') else float(biomasses[-1].estimated_count)
         elif harvests:
-            total_harvested = sum(h.harvest_count for h in harvests)
-            remaining_count = cycle.initial_count - total_harvested
-        
-        if cycle.initial_count > 0:
-            survival_rate = (remaining_count / cycle.initial_count) * 100
+            total_harvested = sum(float(h.harvest_count) for h in harvests)
+            remaining_count = initial_count - total_harvested
+
+        if initial_count > 0:
+            survival_rate = (remaining_count / initial_count) * 100
             self.survival_card.value_label.setText(f"{survival_rate:.1f}")
 
         # کل خوراک مصرفی
-        total_feed = sum(f.feed_amount for f in feeds)
+        total_feed = sum(float(f.feed_amount) for f in feeds) if feeds else 0
 
         # FCR
         if biomasses and len(biomasses) >= 1:
             last_biomass = biomasses[-1]
-            current_weight = last_biomass.estimated_weight
-            current_count = last_biomass.estimated_count
+            current_weight = float(last_biomass.estimated_weight) if hasattr(last_biomass.estimated_weight, '__float__') else float(last_biomass.estimated_weight)
+            current_count = float(last_biomass.estimated_count) if hasattr(last_biomass.estimated_count, '__float__') else float(last_biomass.estimated_count)
             current_total_weight_kg = (current_weight * current_count) / 1000
-            initial_total_weight_kg = (cycle.initial_weight * cycle.initial_count) / 1000
+            initial_total_weight_kg = (initial_weight * initial_count) / 1000
             weight_gain = current_total_weight_kg - initial_total_weight_kg
 
             if weight_gain > 0 and total_feed > 0:
@@ -305,8 +310,8 @@ class ProductionManagementTab(QtWidgets.QWidget):
         if len(biomasses) >= 2:
             first_biomass = biomasses[0]
             last_biomass = biomasses[-1]
-            first_weight = first_biomass.estimated_weight
-            last_weight = last_biomass.estimated_weight
+            first_weight = float(first_biomass.estimated_weight) if hasattr(first_biomass.estimated_weight, '__float__') else float(first_biomass.estimated_weight)
+            last_weight = float(last_biomass.estimated_weight) if hasattr(last_biomass.estimated_weight, '__float__') else float(last_biomass.estimated_weight)
 
             days = self.calculate_days_between(first_biomass.date, last_biomass.date)
             if days > 0 and first_weight > 0:
@@ -315,7 +320,7 @@ class ProductionManagementTab(QtWidgets.QWidget):
 
         # اهداف
         self.fcr_target_card.value_label.setText(f"{getattr(cycle, 'target_fcr', 1.5)}")
-        self.weight_target_card.value_label.setText(f"{cycle.target_weight:.0f}")
+        self.weight_target_card.value_label.setText(f"{target_weight:.0f}")
 
     def update_performance_table(self, biomasses, feeds, mortalities, cycle):
         combined_data = []
@@ -323,49 +328,58 @@ class ProductionManagementTab(QtWidgets.QWidget):
         for b in biomasses:
             combined_data.append({
                 'date': b.date,
-                'weight': b.estimated_weight,
-                'count': b.estimated_count,
+                'weight': float(b.estimated_weight) if hasattr(b.estimated_weight, '__float__') else float(b.estimated_weight),
+                'count': float(b.estimated_count) if hasattr(b.estimated_count, '__float__') else float(b.estimated_count),
             })
 
         combined_data.sort(key=lambda x: x.get('date', ''))
 
         self.performance_table.setRowCount(len(combined_data))
 
+        if not cycle:
+            return
+
+        initial_weight = float(cycle.initial_weight) if hasattr(cycle.initial_weight, '__float__') else float(cycle.initial_weight)
+        initial_count = float(cycle.initial_count) if hasattr(cycle.initial_count, '__float__') else float(cycle.initial_count)
+
         for i, data in enumerate(combined_data):
-            feed_up_to_date = sum(f.feed_amount for f in feeds if f.date <= data['date'])
-            mortality_up_to_date = sum(m.count for m in mortalities if m.date <= data['date'])
+            feed_up_to_date = sum(float(f.feed_amount) for f in feeds if f.date <= data['date']) if feeds else 0
+            mortality_up_to_date = sum(float(m.count) for m in mortalities if m.date <= data['date']) if mortalities else 0
 
             fcr_current = "--"
-            if cycle:
-                initial_total_weight_kg = (cycle.initial_weight * cycle.initial_count) / 1000
-                current_total_weight_kg = (data['weight'] * data['count']) / 1000
-                weight_gain = current_total_weight_kg - initial_total_weight_kg
-                if weight_gain > 0 and feed_up_to_date > 0:
-                    fcr_current = f"{feed_up_to_date / weight_gain:.2f}"
+            initial_total_weight_kg = (initial_weight * initial_count) / 1000
+            current_total_weight_kg = (data['weight'] * data['count']) / 1000
+            weight_gain = current_total_weight_kg - initial_total_weight_kg
+            if weight_gain > 0 and feed_up_to_date > 0:
+                fcr_current = f"{feed_up_to_date / weight_gain:.2f}"
 
             self.performance_table.setItem(i, 0, QtWidgets.QTableWidgetItem(data['date']))
             self.performance_table.setItem(i, 1, QtWidgets.QTableWidgetItem(f"{data['weight']:.0f}"))
-            self.performance_table.setItem(i, 2, QtWidgets.QTableWidgetItem(f"{data['count']:,}"))
+            self.performance_table.setItem(i, 2, QtWidgets.QTableWidgetItem(f"{data['count']:,.0f}"))
             self.performance_table.setItem(i, 3, QtWidgets.QTableWidgetItem(f"{feed_up_to_date:,.0f}"))
             self.performance_table.setItem(i, 4, QtWidgets.QTableWidgetItem(fcr_current))
-            self.performance_table.setItem(i, 5, QtWidgets.QTableWidgetItem(f"{mortality_up_to_date:,}"))
+            self.performance_table.setItem(i, 5, QtWidgets.QTableWidgetItem(f"{mortality_up_to_date:,.0f}"))
 
     def update_alerts(self, biomasses, feeds, mortalities, cycle):
         alerts = []
 
         if biomasses:
             last_biomass = biomasses[-1]
-            current_weight = last_biomass.estimated_weight
-            target_weight = cycle.target_weight if cycle else 0
+            current_weight = float(last_biomass.estimated_weight) if hasattr(last_biomass.estimated_weight, '__float__') else float(last_biomass.estimated_weight)
+            target_weight = float(cycle.target_weight) if cycle and hasattr(cycle.target_weight, '__float__') else float(cycle.target_weight) if cycle else 0
 
             if target_weight > 0 and current_weight >= target_weight:
                 alerts.append("✅ وزن ماهی به هدف تعیین شده رسیده است. زمان برداشت فرا رسیده!")
 
-        total_feed = sum(f.feed_amount for f in feeds)
+        total_feed = sum(float(f.feed_amount) for f in feeds) if feeds else 0
         if biomasses and len(biomasses) >= 1 and cycle:
             last_biomass = biomasses[-1]
-            current_total_weight_kg = (last_biomass.estimated_weight * last_biomass.estimated_count) / 1000
-            initial_total_weight_kg = (cycle.initial_weight * cycle.initial_count) / 1000
+            current_weight = float(last_biomass.estimated_weight) if hasattr(last_biomass.estimated_weight, '__float__') else float(last_biomass.estimated_weight)
+            current_count = float(last_biomass.estimated_count) if hasattr(last_biomass.estimated_count, '__float__') else float(last_biomass.estimated_count)
+            current_total_weight_kg = (current_weight * current_count) / 1000
+            initial_weight = float(cycle.initial_weight) if hasattr(cycle.initial_weight, '__float__') else float(cycle.initial_weight)
+            initial_count = float(cycle.initial_count) if hasattr(cycle.initial_count, '__float__') else float(cycle.initial_count)
+            initial_total_weight_kg = (initial_weight * initial_count) / 1000
             weight_gain = current_total_weight_kg - initial_total_weight_kg
             if weight_gain > 0 and total_feed > 0:
                 fcr = total_feed / weight_gain

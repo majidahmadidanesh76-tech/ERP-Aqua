@@ -1,166 +1,43 @@
 """
-صفحه برنامهریزی تولید - شامل تقویم رشد و برنامه شیفتی و بودجهبندی سالانه
-نسخه کامل با اتصال به چارت سازمانی
+صفحه برنامه‌ریزی تولید حرفه‌ای
+شامل دو تب: برنامه پرورش (متصل به قفس) و برنامه نت (متصل به تجهیزات)
 """
 
 from PyQt5 import QtWidgets, QtCore, QtGui
 import qtawesome as qta
+from functools import partial
+from datetime import datetime, timedelta
+
 from ..database.db_handler import DatabaseHandler
 from ..widgets.jalali_date_edit import JalaliDateEdit
-from functools import partial
-from datetime import date, timedelta
-import math
-import jdatetime
+
 
 class ProductionPlanningTab(QtWidgets.QWidget):
+    """صفحه اصلی برنامه‌ریزی تولید"""
+
     def __init__(self, parent=None, farm=None, mooring=None):
         super().__init__(parent)
         self.db = DatabaseHandler()
         self.current_farm = farm
         self.current_mooring = mooring
+        self.current_plan_id = None
+        self.current_maintenance_plan_id = None
         self.setup_ui()
         self.load_data()
 
     def setup_ui(self):
+        """تنظیم رابط کاربری اصلی"""
         layout = QtWidgets.QVBoxLayout(self)
         layout.setSpacing(10)
+        layout.setContentsMargins(10, 10, 10, 10)
 
-        title = QtWidgets.QLabel("📋 برنامهریزی تولید")
+        # عنوان
+        title = QtWidgets.QLabel("📋 برنامه‌ریزی تولید حرفه‌ای")
         title.setAlignment(QtCore.Qt.AlignCenter)
         title.setStyleSheet("font-size: 18px; font-weight: bold; color: #569CD6; padding: 10px;")
         layout.addWidget(title)
 
-        self.tabs = QtWidgets.QTabWidget()
-        self.tabs.setStyleSheet("""
-            QTabWidget::pane {
-                border: 1px solid #2D2D30;
-                border-radius: 4px;
-                background: #1E1E1E;
-            }
-            QTabBar::tab {
-                background-color: #2D2D30;
-                color: #C8C8C8;
-                padding: 8px 16px;
-                margin: 2px;
-                border-radius: 4px;
-            }
-            QTabBar::tab:selected {
-                background-color: #0E639C;
-                color: white;
-            }
-        """)
-
-        self.growth_calendar_tab = self.create_growth_calendar_tab()
-        self.tabs.addTab(self.growth_calendar_tab, "📅 تقویم رشد")
-
-        self.shift_planning_tab = self.create_shift_planning_tab()
-        self.tabs.addTab(self.shift_planning_tab, "🧑🌾 برنامه شیفتی")
-
-        self.budget_tab = self.create_budget_tab()
-        self.tabs.addTab(self.budget_tab, "📊 بودجهبندی سالانه")
-
-        layout.addWidget(self.tabs)
-
-    def load_data(self):
-        self.load_cages()
-        self.load_species()
-        self.load_saved_plans()
-        self.update_budget_preview()
-
-    def load_cages(self):
-        self.cage_combo.clear()
-        self.budget_cage_combo.clear()
-        if self.current_mooring and hasattr(self.current_mooring, 'cages'):
-            for cage in self.current_mooring.cages:
-                self.cage_combo.addItem(cage.id, cage.id)
-                self.budget_cage_combo.addItem(cage.id, cage.id)
-            if self.cage_combo.count() > 0:
-                self.cage_combo.setCurrentIndex(0)
-            if self.budget_cage_combo.count() > 0:
-                self.budget_cage_combo.setCurrentIndex(0)
-
-    def load_species(self):
-        species = self.db.get_all_species()
-        self.species_combo.clear()
-        for s in species:
-            self.species_combo.addItem(s['name'], s['id'])
-
-    def load_saved_plans(self):
-        if hasattr(self, 'plans_list'):
-            cage_id = self.cage_combo.currentData() if self.cage_combo.count() > 0 else None
-            self.plans_list.clear()
-            if cage_id:
-                plans = self.db.get_production_plans_by_cage(cage_id)
-                for plan in plans:
-                    item_text = f"{plan['planned_stocking_date']} → {plan['planned_harvest_date']} (خوراک: {plan['estimated_feed_required']:.0f}kg)"
-                    item = QtWidgets.QListWidgetItem(item_text)
-                    item.setData(QtCore.Qt.UserRole, plan['id'])
-                    self.plans_list.addItem(item)
-
-    # ==================== توزیع هوشمند خوراک ====================
-    
-    def distribute_feed_over_months(self, total_feed_kg, start_year, start_month, end_year, end_month):
-        duration_months = (end_year - start_year) * 12 + (end_month - start_month) + 1
-        if duration_months <= 0 or total_feed_kg <= 0:
-            return [0] * 12
-        weights = []
-        for i in range(duration_months):
-            weight = (i + 1) ** 1.5
-            weights.append(weight)
-        total_weight = sum(weights)
-        weights = [w / total_weight for w in weights]
-        monthly_feeds_period = [total_feed_kg * w for w in weights]
-        result = [0] * 12
-        for i in range(duration_months):
-            month_idx = (start_month + i) % 12
-            result[month_idx] += monthly_feeds_period[i]
-        return result
-
-    # ==================== تب تقویم رشد ====================
-
-    def create_growth_calendar_tab(self):
-        tab = QtWidgets.QWidget()
-        main_layout = QtWidgets.QVBoxLayout(tab)
-        main_layout.setSpacing(10)
-
-        saved_group = QtWidgets.QGroupBox("📋 برنامههای ذخیره شده")
-        saved_group.setStyleSheet("""
-            QGroupBox {
-                border: 1px solid #2D2D30;
-                border-radius: 5px;
-                margin-top: 10px;
-                padding-top: 10px;
-                color: #C8C8C8;
-                font-weight: bold;
-            }
-            QGroupBox::title {
-                color: #569CD6;
-            }
-        """)
-        saved_layout = QtWidgets.QVBoxLayout(saved_group)
-
-        self.plans_list = QtWidgets.QListWidget()
-        self.plans_list.setMaximumHeight(120)
-        self.plans_list.setStyleSheet("""
-            QListWidget {
-                background-color: #252526;
-                border: 1px solid #2D2D30;
-                border-radius: 4px;
-                color: #C8C8C8;
-                padding: 5px;
-            }
-            QListWidget::item {
-                padding: 6px;
-                border-bottom: 1px solid #2D2D30;
-            }
-            QListWidget::item:selected {
-                background-color: #0E639C;
-            }
-        """)
-
-        list_btn_layout = QtWidgets.QHBoxLayout()
-        list_btn_layout.setSpacing(5)
-
+        # استایل شیشه‌ای برای دکمه‌ها
         glass_btn_style = """
             QToolButton {
                 background-color: rgba(60, 60, 65, 180);
@@ -173,1022 +50,1413 @@ class ProductionPlanningTab(QtWidgets.QWidget):
             QToolButton:hover {
                 background-color: rgba(86, 156, 214, 100);
             }
+            QPushButton {
+                background-color: rgba(60, 60, 65, 180);
+                color: #C8C8C8;
+                border: none;
+                border-radius: 4px;
+                padding: 6px 12px;
+                font-weight: bold;
+            }
+            QPushButton:hover {
+                background-color: rgba(86, 156, 214, 100);
+                color: white;
+            }
         """
 
-        self.edit_plan_btn = QtWidgets.QToolButton()
-        self.edit_plan_btn.setIcon(qta.icon('fa5s.edit', color='#569CD6'))
-        self.edit_plan_btn.setIconSize(QtCore.QSize(18, 18))
-        self.edit_plan_btn.setToolTip("ویرایش برنامه")
-        self.edit_plan_btn.setStyleSheet(glass_btn_style)
-        self.edit_plan_btn.clicked.connect(self.edit_selected_plan)
-        self.edit_plan_btn.setEnabled(False)
-
-        self.delete_plan_btn = QtWidgets.QToolButton()
-        self.delete_plan_btn.setIcon(qta.icon('fa5s.trash-alt', color='#F48771'))
-        self.delete_plan_btn.setIconSize(QtCore.QSize(18, 18))
-        self.delete_plan_btn.setToolTip("حذف برنامه")
-        self.delete_plan_btn.setStyleSheet(glass_btn_style)
-        self.delete_plan_btn.clicked.connect(self.delete_selected_plan)
-        self.delete_plan_btn.setEnabled(False)
-
-        list_btn_layout.addWidget(self.edit_plan_btn)
-        list_btn_layout.addWidget(self.delete_plan_btn)
-        list_btn_layout.addStretch()
-
-        saved_layout.addWidget(self.plans_list)
-        saved_layout.addLayout(list_btn_layout)
-
-        self.plans_list.itemSelectionChanged.connect(self.on_plan_selected)
-
-        main_layout.addWidget(saved_group)
-
-        input_group = QtWidgets.QGroupBox("📝 اطلاعات اولیه")
-        input_group.setStyleSheet("""
-            QGroupBox {
-                border: 1px solid #2D2D30;
-                border-radius: 5px;
-                margin-top: 10px;
-                padding-top: 10px;
-                color: #C8C8C8;
-                font-weight: bold;
-            }
-            QGroupBox::title {
-                color: #569CD6;
-            }
-        """)
-        form_layout = QtWidgets.QFormLayout(input_group)
-        form_layout.setSpacing(12)
-        form_layout.setLabelAlignment(QtCore.Qt.AlignRight)
-
-        label_style = "color: #C8C8C8; font-weight: normal; min-width: 100px;"
-
-        self.cage_combo = QtWidgets.QComboBox()
-        self.cage_combo.setMinimumWidth(220)
-        self.cage_combo.setStyleSheet("padding: 5px; background-color: #3C3C3C; border: 1px solid #2D2D30; border-radius: 4px; color: #C8C8C8;")
-        self.cage_combo.currentIndexChanged.connect(self.load_saved_plans)
-        cage_label = QtWidgets.QLabel("انتخاب قفس:")
-        cage_label.setStyleSheet(label_style)
-        form_layout.addRow(cage_label, self.cage_combo)
-
-        self.species_combo = QtWidgets.QComboBox()
-        self.species_combo.setStyleSheet("padding: 5px; background-color: #3C3C3C; border: 1px solid #2D2D30; border-radius: 4px; color: #C8C8C8;")
-        species_label = QtWidgets.QLabel("گونه ماهی:")
-        species_label.setStyleSheet(label_style)
-        form_layout.addRow(species_label, self.species_combo)
-
-        self.stocking_date = JalaliDateEdit()
-        date_label = QtWidgets.QLabel("تاریخ رهاسازی:")
-        date_label.setStyleSheet(label_style)
-        form_layout.addRow(date_label, self.stocking_date)
-
-        self.initial_weight = QtWidgets.QDoubleSpinBox()
-        self.initial_weight.setRange(1, 5000)
-        self.initial_weight.setValue(50)
-        self.initial_weight.setSuffix(" گرم")
-        self.initial_weight.setStyleSheet("padding: 5px; background-color: #3C3C3C; border: 1px solid #2D2D30; border-radius: 4px; color: #C8C8C8;")
-        weight_label = QtWidgets.QLabel("وزن اولیه:")
-        weight_label.setStyleSheet(label_style)
-        form_layout.addRow(weight_label, self.initial_weight)
-
-        main_layout.addWidget(input_group)
-
-        self.calc_btn = QtWidgets.QPushButton("🔮 محاسبه پیشبینی رشد")
-        self.calc_btn.setMinimumHeight(40)
-        self.calc_btn.setStyleSheet("""
-            QPushButton {
-                background-color: rgba(86, 156, 214, 80);
-                color: white;
-                font-weight: bold;
+        # ========== تب‌ها ==========
+        self.main_tabs = QtWidgets.QTabWidget()
+        self.main_tabs.setStyleSheet("""
+            QTabWidget::pane {
+                border: 1px solid #3E3E42;
                 border-radius: 4px;
-                padding: 8px 16px;
-                border: none;
+                background: #1E1E1E;
             }
-            QPushButton:hover {
-                background-color: rgba(86, 156, 214, 120);
-            }
-        """)
-        self.calc_btn.clicked.connect(self.calculate_growth_forecast)
-        main_layout.addWidget(self.calc_btn)
-
-        self.result_group = QtWidgets.QGroupBox("📊 نتایج پیشبینی")
-        self.result_group.setStyleSheet("""
-            QGroupBox {
-                border: 1px solid #2D2D30;
-                border-radius: 5px;
-                margin-top: 10px;
-                padding-top: 10px;
+            QTabBar::tab {
+                background-color: #2D2D30;
                 color: #C8C8C8;
-                font-weight: bold;
-            }
-            QGroupBox::title {
-                color: #569CD6;
-            }
-        """)
-        result_layout = QtWidgets.QGridLayout(self.result_group)
-        result_layout.setSpacing(12)
-        result_layout.setHorizontalSpacing(20)
-
-        result_label_style = "color: #C8C8C8; font-weight: normal;"
-        result_value_style = "color: #4EC9B0; font-weight: bold; font-size: 13px;"
-
-        harvest_lbl = QtWidgets.QLabel("⏳ تاریخ تخمینی برداشت:")
-        harvest_lbl.setStyleSheet(result_label_style)
-        self.harvest_date_label = QtWidgets.QLabel("--")
-        self.harvest_date_label.setStyleSheet(result_value_style)
-        self.harvest_date_label.setAlignment(QtCore.Qt.AlignRight)
-        result_layout.addWidget(harvest_lbl, 0, 0)
-        result_layout.addWidget(self.harvest_date_label, 0, 1)
-
-        feed_lbl = QtWidgets.QLabel("🍽️ خوراک مورد نیاز (کل):")
-        feed_lbl.setStyleSheet(result_label_style)
-        self.feed_needed_label = QtWidgets.QLabel("--")
-        self.feed_needed_label.setStyleSheet(result_value_style)
-        self.feed_needed_label.setAlignment(QtCore.Qt.AlignRight)
-        result_layout.addWidget(feed_lbl, 0, 2)
-        result_layout.addWidget(self.feed_needed_label, 0, 3)
-
-        fcr_lbl = QtWidgets.QLabel("📊 ضریب تبدیل پیشبینی:")
-        fcr_lbl.setStyleSheet(result_label_style)
-        self.fcr_label = QtWidgets.QLabel("--")
-        self.fcr_label.setStyleSheet(result_value_style)
-        self.fcr_label.setAlignment(QtCore.Qt.AlignRight)
-        result_layout.addWidget(fcr_lbl, 1, 0)
-        result_layout.addWidget(self.fcr_label, 1, 1)
-
-        growth_lbl = QtWidgets.QLabel("📈 نرخ رشد روزانه:")
-        growth_lbl.setStyleSheet(result_label_style)
-        self.growth_rate_label = QtWidgets.QLabel("--")
-        self.growth_rate_label.setStyleSheet(result_value_style)
-        self.growth_rate_label.setAlignment(QtCore.Qt.AlignRight)
-        result_layout.addWidget(growth_lbl, 1, 2)
-        result_layout.addWidget(self.growth_rate_label, 1, 3)
-
-        result_layout.setColumnStretch(1, 1)
-        result_layout.setColumnStretch(3, 1)
-
-        main_layout.addWidget(self.result_group)
-
-        self.save_plan_btn = QtWidgets.QPushButton("💾 ذخیره این برنامه")
-        self.save_plan_btn.setMinimumHeight(40)
-        self.save_plan_btn.setStyleSheet("""
-            QPushButton {
-                background-color: rgba(46, 139, 87, 80);
-                color: white;
-                font-weight: bold;
+                padding: 8px 20px;
+                margin: 2px;
                 border-radius: 4px;
-                padding: 8px 16px;
-                border: none;
             }
-            QPushButton:hover {
-                background-color: rgba(46, 139, 87, 120);
+            QTabBar::tab:selected {
+                background-color: #3A3A3A;
+                color: #C8C8C8;
+            }
+            QTabBar::tab:hover {
+                background-color: #3E3E42;
             }
         """)
-        self.save_plan_btn.clicked.connect(self.save_current_plan)
-        self.save_plan_btn.setEnabled(False)
-        main_layout.addWidget(self.save_plan_btn)
 
-        main_layout.addStretch()
-        return tab
+        # تب 1: برنامه پرورش
+        self.production_tab = self.create_production_tab(glass_btn_style)
+        self.main_tabs.addTab(self.production_tab, "🐟 برنامه پرورش")
 
-    def on_plan_selected(self):
-        has_selection = len(self.plans_list.selectedItems()) > 0
-        self.edit_plan_btn.setEnabled(has_selection)
-        self.delete_plan_btn.setEnabled(has_selection)
+        # تب 2: برنامه تعمیرات و نگهداری (نت)
+        self.maintenance_tab = self.create_maintenance_tab(glass_btn_style)
+        self.main_tabs.addTab(self.maintenance_tab, "🛠️ برنامه نت")
 
-    def edit_selected_plan(self):
-        selected = self.plans_list.selectedItems()
-        if not selected:
-            QtWidgets.QMessageBox.warning(self, "خطا", "لطفاً یک برنامه را انتخاب کنید")
-            return
-        plan_id = selected[0].data(QtCore.Qt.UserRole)
-        try:
-            cursor = self.db.db.connection.cursor(dictionary=True)
-            cursor.execute("SELECT * FROM production_plans WHERE id = %s", (plan_id,))
-            plan = cursor.fetchone()
-            cursor.close()
-            if plan:
-                self.cage_combo.setCurrentText(plan['cage_id'])
-                species_id = plan['species_id']
-                for i in range(self.species_combo.count()):
-                    if self.species_combo.itemData(i) == species_id:
-                        self.species_combo.setCurrentIndex(i)
-                        break
-                
-                stocking_date = plan['planned_stocking_date']
-                if hasattr(stocking_date, 'strftime'):
-                    date_str = stocking_date.strftime("%Y-%m-%d")
-                else:
-                    date_str = str(stocking_date)
-                
-                date_parts = date_str.split('-')
-                self.stocking_date.set_jalali_date(f"{int(date_parts[0])}/{int(date_parts[1])}/{int(date_parts[2])}")
-                self.initial_weight.setValue(50)
-                self.calculate_growth_forecast()
-                cursor2 = self.db.db.connection.cursor()
-                cursor2.execute("DELETE FROM production_plans WHERE id = %s", (plan_id,))
-                self.db.db.connection.commit()
-                cursor2.close()
-                self.load_saved_plans()
-                QtWidgets.QMessageBox.information(self, "اطلاع", "برنامه برای ویرایش بارگذاری شد. پس از ویرایش، دوباره ذخیره کنید.")
-            else:
-                QtWidgets.QMessageBox.warning(self, "خطا", "برنامه یافت نشد")
-        except Exception as e:
-            QtWidgets.QMessageBox.warning(self, "خطا", f"خطا در ویرایش: {e}")
+        layout.addWidget(self.main_tabs)
 
-    def delete_selected_plan(self):
-        selected = self.plans_list.selectedItems()
-        if not selected:
-            QtWidgets.QMessageBox.warning(self, "خطا", "لطفاً یک برنامه را انتخاب کنید")
-            return
-        plan_id = selected[0].data(QtCore.Qt.UserRole)
-        reply = QtWidgets.QMessageBox.question(self, "تأیید حذف", "آیا از حذف این برنامه مطمئن هستید؟", QtWidgets.QMessageBox.Yes | QtWidgets.QMessageBox.No)
-        if reply == QtWidgets.QMessageBox.Yes:
-            try:
-                cursor = self.db.db.connection.cursor()
-                cursor.execute("DELETE FROM production_plans WHERE id = %s", (plan_id,))
-                self.db.db.connection.commit()
-                cursor.close()
-                self.load_saved_plans()
-                QtWidgets.QMessageBox.information(self, "موفق", "برنامه با موفقیت حذف شد")
-            except Exception as e:
-                QtWidgets.QMessageBox.warning(self, "خطا", f"خطا در حذف: {e}")
+        # نوار وضعیت پایینی
+        self.setup_status_bar(layout)
 
-    def calculate_growth_forecast(self):
-        species_id = self.species_combo.currentData()
-        if not species_id:
-            QtWidgets.QMessageBox.warning(self, "خطا", "لطفاً گونه ماهی را انتخاب کنید")
-            return
-        species = self.db.get_species_by_id(species_id)
-        if not species:
-            QtWidgets.QMessageBox.warning(self, "خطا", "اطلاعات گونه یافت نشد")
-            return
-        initial_weight = self.initial_weight.value()
-        target_weight = float(species.get('typical_harvest_weight', 0))
-        daily_gain = float(species.get('avg_daily_gain', 0))
-        target_fcr = float(species.get('target_fcr', 1.5))
-        if daily_gain <= 0:
-            self.harvest_date_label.setText("محاسبه ناممکن")
-            QtWidgets.QMessageBox.warning(self, "خطا", "نرخ رشد روزانه معتبر نیست")
-            return
-        days_needed = (target_weight - initial_weight) / daily_gain
-        
-        shamsi_date_str = self.stocking_date.get_jalali_date()
-        if shamsi_date_str:
-            parts = shamsi_date_str.split('/')
-            if len(parts) == 3:
-                shamsi_year = int(parts[0])
-                shamsi_month = int(parts[1])
-                shamsi_day = int(parts[2])
-                gregorian_date = jdatetime.date(shamsi_year, shamsi_month, shamsi_day).togregorian()
-                qdate = QtCore.QDate(gregorian_date.year, gregorian_date.month, gregorian_date.day)
-                harvest_date = qdate.addDays(int(days_needed))
-                harvest_gregorian = date(harvest_date.year(), harvest_date.month(), harvest_date.day())
-                harvest_jalali = jdatetime.date.fromgregorian(date=harvest_gregorian)
-                self.harvest_date_label.setText(f"{harvest_jalali.year}/{harvest_jalali.month:02d}/{harvest_jalali.day:02d}")
-            else:
-                self.harvest_date_label.setText("تاریخ نامعتبر")
-        else:
-            self.harvest_date_label.setText("تاریخ نامعتبر")
-        
-        weight_gain_kg = (target_weight - initial_weight) / 1000
-        feed_needed = weight_gain_kg * target_fcr
-        self.feed_needed_label.setText(f"{feed_needed:,.0f}")
-        self.fcr_label.setText(f"{target_fcr}")
-        self.growth_rate_label.setText(f"{daily_gain:.1f}")
-        
-        if shamsi_date_str:
-            parts = shamsi_date_str.split('/')
-            if len(parts) == 3:
-                gregorian_date = jdatetime.date(int(parts[0]), int(parts[1]), int(parts[2])).togregorian()
-                stocking_date_miladi = gregorian_date.strftime("%Y-%m-%d")
-                harvest_gregorian = date(harvest_date.year(), harvest_date.month(), harvest_date.day())
-                harvest_date_miladi = harvest_gregorian.strftime("%Y-%m-%d")
-            else:
-                stocking_date_miladi = ""
-                harvest_date_miladi = ""
-        else:
-            stocking_date_miladi = ""
-            harvest_date_miladi = ""
-        
-        self.current_forecast = {
-            'species_id': species_id,
-            'stocking_date': stocking_date_miladi,
-            'harvest_date': harvest_date_miladi,
-            'feed_needed': feed_needed,
-            'target_weight': target_weight
-        }
-        self.save_plan_btn.setEnabled(True)
-
-    def clear_input_fields(self):
-        self.stocking_date.set_jalali_date("")
-        self.initial_weight.setValue(50)
-        self.harvest_date_label.setText("--")
-        self.feed_needed_label.setText("--")
-        self.fcr_label.setText("--")
-        self.growth_rate_label.setText("--")
-        self.save_plan_btn.setEnabled(False)
-        if hasattr(self, 'current_forecast'):
-            delattr(self, 'current_forecast')
-
-    def save_current_plan(self):
-        cage_id = self.cage_combo.currentData()
-        if not cage_id:
-            QtWidgets.QMessageBox.warning(self, "خطا", "لطفاً قفس را انتخاب کنید")
-            return
-        if not hasattr(self, 'current_forecast'):
-            QtWidgets.QMessageBox.warning(self, "خطا", "لطفاً ابتدا پیشبینی را محاسبه کنید")
-            return
-        result = self.db.save_production_plan(
-            cage_id,
-            self.current_forecast['species_id'],
-            self.current_forecast['stocking_date'],
-            self.current_forecast['harvest_date'],
-            self.current_forecast['feed_needed']
-        )
-        if result:
-            QtWidgets.QMessageBox.information(self, "موفق", "برنامه تولید با موفقیت ذخیره شد")
-            self.clear_input_fields()
-            self.load_saved_plans()
-        else:
-            QtWidgets.QMessageBox.warning(self, "خطا", "خطا در ذخیره برنامه تولید")
-
-    # ==================== تب برنامه شیفتی ====================
-
-    def create_shift_planning_tab(self):
+    def create_production_tab(self, glass_btn_style):
+        """ایجاد تب برنامه پرورش (متصل به قفس)"""
         tab = QtWidgets.QWidget()
         layout = QtWidgets.QVBoxLayout(tab)
         layout.setSpacing(10)
 
+        # ========== نوار ابزار ==========
         toolbar = QtWidgets.QHBoxLayout()
-        toolbar.setSpacing(8)
+        toolbar.setSpacing(10)
 
-        date_label = QtWidgets.QLabel("تاریخ:")
-        date_label.setStyleSheet("color: #C8C8C8; font-weight: bold;")
-        toolbar.addWidget(date_label)
-
-        self.shift_date = QtWidgets.QDateEdit()
-        self.shift_date.setCalendarPopup(True)
-        self.shift_date.setDate(QtCore.QDate.currentDate())
-        self.shift_date.setMinimumWidth(120)
-        self.shift_date.setStyleSheet("padding: 5px; background-color: #3C3C3C; border: 1px solid #2D2D30; border-radius: 4px; color: #C8C8C8;")
-        self.shift_date.dateChanged.connect(self.load_daily_tasks)
-        toolbar.addWidget(self.shift_date)
+        toolbar.addWidget(QtWidgets.QLabel("قفس:"))
+        self.cage_combo = QtWidgets.QComboBox()
+        self.cage_combo.setMinimumWidth(150)
+        self.cage_combo.setMinimumHeight(30)
+        self.cage_combo.setEditable(True)
+        self.cage_combo.setInsertPolicy(QtWidgets.QComboBox.NoInsert)
+        self.cage_combo.currentIndexChanged.connect(self.on_cage_changed)
+        self.cage_combo.setStyleSheet("""
+            QComboBox {
+                background-color: #3C3C3C;
+                color: #C8C8C8;
+                border: 1px solid #3E3E42;
+                border-radius: 4px;
+                padding: 5px;
+            }
+            QComboBox:hover {
+                border-color: #569CD6;
+            }
+        """)
+        toolbar.addWidget(self.cage_combo)
 
         toolbar.addSpacing(20)
 
-        self.add_task_btn = QtWidgets.QPushButton("➕ افزودن وظیفه")
-        self.add_task_btn.setStyleSheet("""
-            QPushButton {
-                background-color: rgba(46, 139, 87, 80);
-                color: white;
-                font-weight: bold;
-                border-radius: 4px;
-                padding: 6px 12px;
-                border: none;
-            }
-            QPushButton:hover {
-                background-color: rgba(46, 139, 87, 120);
-            }
-        """)
-        self.add_task_btn.clicked.connect(self.add_new_task)
-        toolbar.addWidget(self.add_task_btn)
+        self.new_production_btn = QtWidgets.QToolButton()
+        self.new_production_btn.setIcon(qta.icon('fa5s.plus', color='#C8C8C8'))
+        self.new_production_btn.setIconSize(QtCore.QSize(18, 18))
+        self.new_production_btn.setToolTip("برنامه پرورش جدید")
+        self.new_production_btn.setStyleSheet(glass_btn_style)
+        self.new_production_btn.clicked.connect(self.create_new_production_plan)
+        toolbar.addWidget(self.new_production_btn)
 
-        toolbar.addSpacing(10)
+        self.submit_production_btn = QtWidgets.QToolButton()
+        self.submit_production_btn.setIcon(qta.icon('fa5s.paper-plane', color='#C8C8C8'))
+        self.submit_production_btn.setIconSize(QtCore.QSize(18, 18))
+        self.submit_production_btn.setToolTip("ارسال برنامه")
+        self.submit_production_btn.setStyleSheet(glass_btn_style)
+        self.submit_production_btn.clicked.connect(self.submit_production_plan)
+        self.submit_production_btn.setEnabled(False)
+        toolbar.addWidget(self.submit_production_btn)
 
-        self.refresh_tasks_btn = QtWidgets.QPushButton("🔄 بهروزرسانی")
-        self.refresh_tasks_btn.setStyleSheet("""
-            QPushButton {
-                background-color: rgba(86, 156, 214, 80);
-                color: white;
-                font-weight: bold;
-                border-radius: 4px;
-                padding: 6px 12px;
-                border: none;
-            }
-            QPushButton:hover {
-                background-color: rgba(86, 156, 214, 120);
-            }
-        """)
-        self.refresh_tasks_btn.clicked.connect(self.load_daily_tasks)
-        toolbar.addWidget(self.refresh_tasks_btn)
+        self.refresh_production_btn = QtWidgets.QToolButton()
+        self.refresh_production_btn.setIcon(qta.icon('fa5s.sync-alt', color='#C8C8C8'))
+        self.refresh_production_btn.setIconSize(QtCore.QSize(18, 18))
+        self.refresh_production_btn.setToolTip("به‌روزرسانی")
+        self.refresh_production_btn.setStyleSheet(glass_btn_style)
+        self.refresh_production_btn.clicked.connect(self.refresh_production_data)
+        toolbar.addWidget(self.refresh_production_btn)
 
         toolbar.addStretch()
         layout.addLayout(toolbar)
 
-        self.tasks_table = QtWidgets.QTableWidget()
-        self.tasks_table.setColumnCount(6)
-        self.tasks_table.setHorizontalHeaderLabels(["شناسه", "زمان", "وظیفه", "مسئول", "وضعیت", "عملیات"])
-        self.tasks_table.horizontalHeader().setStretchLastSection(True)
-        self.tasks_table.setColumnWidth(0, 60)
-        self.tasks_table.setColumnWidth(1, 100)
-        self.tasks_table.setColumnWidth(2, 130)
-        self.tasks_table.setColumnWidth(3, 120)
-        self.tasks_table.setColumnWidth(4, 100)
-        self.tasks_table.setColumnWidth(5, 80)
-        self.tasks_table.setStyleSheet("""
+        # ========== بخش اصلی ==========
+        splitter = QtWidgets.QSplitter(QtCore.Qt.Horizontal)
+        splitter.setSizes([300, 700])
+
+        # سمت چپ: لیست برنامه‌ها
+        left_widget = QtWidgets.QWidget()
+        left_layout = QtWidgets.QVBoxLayout(left_widget)
+        left_layout.setContentsMargins(0, 0, 5, 0)
+
+        left_label = QtWidgets.QLabel("📌 برنامه‌های پرورش")
+        left_label.setStyleSheet("color: #C8C8C8; font-weight: bold; padding: 5px;")
+        left_layout.addWidget(left_label)
+
+        self.production_plans_list = QtWidgets.QListWidget()
+        self.production_plans_list.setMinimumHeight(200)
+        self.production_plans_list.itemClicked.connect(self.on_production_plan_selected)
+        self.production_plans_list.setStyleSheet("""
+            QListWidget {
+                background-color: #2D2D30;
+                border: 1px solid #3E3E42;
+                border-radius: 4px;
+                color: #C8C8C8;
+                padding: 5px;
+            }
+            QListWidget::item {
+                padding: 8px;
+                border-bottom: 1px solid #3E3E42;
+            }
+            QListWidget::item:selected {
+                background-color: #3A3A3A;
+            }
+            QListWidget::item:hover {
+                background-color: #353535;
+            }
+        """)
+        left_layout.addWidget(self.production_plans_list)
+
+        # دکمه‌های عملیات روی برنامه
+        plan_btn_layout = QtWidgets.QHBoxLayout()
+        plan_btn_layout.setSpacing(5)
+
+        self.edit_production_btn = QtWidgets.QToolButton()
+        self.edit_production_btn.setIcon(qta.icon('fa5s.edit', color='#C8C8C8'))
+        self.edit_production_btn.setIconSize(QtCore.QSize(18, 18))
+        self.edit_production_btn.setToolTip("ویرایش برنامه")
+        self.edit_production_btn.clicked.connect(self.edit_production_plan)
+        self.edit_production_btn.setEnabled(False)
+        self.edit_production_btn.setFixedSize(32, 32)
+        self.edit_production_btn.setStyleSheet(glass_btn_style)
+
+        self.delete_production_btn = QtWidgets.QToolButton()
+        self.delete_production_btn.setIcon(qta.icon('fa5s.trash-alt', color='#C8C8C8'))
+        self.delete_production_btn.setIconSize(QtCore.QSize(18, 18))
+        self.delete_production_btn.setToolTip("حذف برنامه")
+        self.delete_production_btn.clicked.connect(self.delete_production_plan)
+        self.delete_production_btn.setEnabled(False)
+        self.delete_production_btn.setFixedSize(32, 32)
+        self.delete_production_btn.setStyleSheet(glass_btn_style)
+
+        plan_btn_layout.addWidget(self.edit_production_btn)
+        plan_btn_layout.addWidget(self.delete_production_btn)
+        plan_btn_layout.addStretch()
+        left_layout.addLayout(plan_btn_layout)
+
+        splitter.addWidget(left_widget)
+
+        # سمت راست: جدول وظایف
+        right_widget = QtWidgets.QWidget()
+        right_layout = QtWidgets.QVBoxLayout(right_widget)
+        right_layout.setContentsMargins(5, 0, 0, 0)
+
+        self.production_plan_info = QtWidgets.QLabel("برنامه‌ای انتخاب نشده است")
+        self.production_plan_info.setStyleSheet("color: #C8C8C8; font-size: 12px; padding: 8px; background-color: #252526; border-radius: 4px;")
+        right_layout.addWidget(self.production_plan_info)
+
+        task_toolbar = QtWidgets.QHBoxLayout()
+        self.add_production_task_btn = QtWidgets.QToolButton()
+        self.add_production_task_btn.setIcon(qta.icon('fa5s.plus', color='#C8C8C8'))
+        self.add_production_task_btn.setIconSize(QtCore.QSize(16, 16))
+        self.add_production_task_btn.setToolTip("افزودن وظیفه")
+        self.add_production_task_btn.setStyleSheet(glass_btn_style)
+        self.add_production_task_btn.clicked.connect(self.add_production_task)
+        self.add_production_task_btn.setEnabled(False)
+
+        task_toolbar.addWidget(self.add_production_task_btn)
+        task_toolbar.addStretch()
+        right_layout.addLayout(task_toolbar)
+
+        self.production_tasks_table = QtWidgets.QTableWidget()
+        self.production_tasks_table.setAlternatingRowColors(True)
+        self.production_tasks_table.setMinimumHeight(300)
+        self.production_tasks_table.setColumnCount(8)
+        self.production_tasks_table.setHorizontalHeaderLabels(["شناسه", "وظیفه", "تاریخ", "زمان", "مدت", "مسئول", "اولویت", "وضعیت"])
+        self.production_tasks_table.horizontalHeader().setStretchLastSection(True)
+        self.production_tasks_table.setColumnWidth(0, 60)
+        self.production_tasks_table.setColumnWidth(1, 220)
+        self.production_tasks_table.setColumnWidth(2, 100)
+        self.production_tasks_table.setColumnWidth(3, 80)
+        self.production_tasks_table.setColumnWidth(4, 80)
+        self.production_tasks_table.setColumnWidth(5, 120)
+        self.production_tasks_table.setStyleSheet("""
             QTableWidget {
-                border: 1px solid #2D2D30;
+                border: 1px solid #3E3E42;
                 border-radius: 4px;
                 background-color: #2D2D30;
                 alternate-background-color: #252526;
-                gridline-color: #2D2D30;
+                gridline-color: #3E3E42;
+            }
+            QTableWidget::item {
+                padding: 8px 5px;
             }
             QTableWidget::item:selected {
-                background-color: #0E639C;
+                background-color: #3A3A3A;
+            }
+            QTableWidget::item:hover {
+                background-color: #353535;
             }
             QHeaderView::section {
                 background-color: #252526;
-                color: #569CD6;
+                color: #C8C8C8;
                 border: none;
-                border-bottom: 1px solid #2D2D30;
+                border-bottom: 1px solid #3E3E42;
+                padding: 8px;
+                font-weight: bold;
             }
         """)
-        layout.addWidget(self.tasks_table)
+        right_layout.addWidget(self.production_tasks_table)
 
-        stats_frame = QtWidgets.QFrame()
-        stats_frame.setStyleSheet("background-color: #252526; border-radius: 5px; padding: 5px; border: 1px solid #2D2D30;")
-        stats_layout = QtWidgets.QHBoxLayout(stats_frame)
-
-        self.total_tasks_label = QtWidgets.QLabel("📋 کل وظایف: 0")
-        self.pending_tasks_label = QtWidgets.QLabel("⏳ در انتظار: 0")
-        self.done_tasks_label = QtWidgets.QLabel("✅ انجام شده: 0")
-
-        for label in [self.total_tasks_label, self.pending_tasks_label, self.done_tasks_label]:
-            label.setStyleSheet("color: #C8C8C8; font-size: 11px;")
-            stats_layout.addWidget(label)
-
-        stats_layout.addStretch()
-        layout.addWidget(stats_frame)
-
-        self.load_daily_tasks()
+        splitter.addWidget(right_widget)
+        layout.addWidget(splitter, 1)
 
         return tab
 
-    def load_daily_tasks(self):
-        """بارگذاری وظایف روزانه برای تاریخ انتخاب شده"""
-        task_date = self.shift_date.date().toString("yyyy-MM-dd")
-        tasks = self.db.get_daily_tasks_by_date(task_date)
-        self.tasks_table.setRowCount(len(tasks))
-
-        pending = 0
-        done = 0
-
-        glass_btn_style = """
-            QToolButton {
-                background-color: rgba(60, 60, 65, 180);
-                border: none;
-                border-radius: 3px;
-                padding: 2px;
-                min-width: 20px;
-                min-height: 20px;
-            }
-            QToolButton:hover {
-                background-color: rgba(86, 156, 214, 100);
-            }
-        """
-
-        for i, task in enumerate(tasks):
-            self.tasks_table.setItem(i, 0, QtWidgets.QTableWidgetItem(str(task['id'])))
-            self.tasks_table.setItem(i, 1, QtWidgets.QTableWidgetItem(task['shift_time']))
-            self.tasks_table.setItem(i, 2, QtWidgets.QTableWidgetItem(task['task_type']))
-            self.tasks_table.setItem(i, 3, QtWidgets.QTableWidgetItem(task['assigned_to'] if task['assigned_to'] else "تعیین نشده"))
-
-            if task['status'] == 'done':
-                status_text = "✅ انجام شده"
-                done += 1
-            else:
-                status_text = "⏳ در انتظار"
-                pending += 1
-            self.tasks_table.setItem(i, 4, QtWidgets.QTableWidgetItem(status_text))
-
-            btn_widget = QtWidgets.QWidget()
-            btn_layout = QtWidgets.QHBoxLayout(btn_widget)
-            btn_layout.setContentsMargins(2, 2, 2, 2)
-            btn_layout.setSpacing(2)
-
-            if task['status'] != 'done':
-                complete_btn = QtWidgets.QToolButton()
-                complete_btn.setIcon(qta.icon('fa5s.check-circle', color='#4EC9B0'))
-                complete_btn.setIconSize(QtCore.QSize(12, 12))
-                complete_btn.setToolTip("تکمیل وظیفه")
-                complete_btn.setStyleSheet(glass_btn_style)
-                complete_btn.setFixedSize(20, 20)
-                complete_btn.clicked.connect(partial(self.complete_task, task['id']))
-                btn_layout.addWidget(complete_btn)
-                
-                edit_btn = QtWidgets.QToolButton()
-                edit_btn.setIcon(qta.icon('fa5s.edit', color='#569CD6'))
-                edit_btn.setIconSize(QtCore.QSize(12, 12))
-                edit_btn.setToolTip("ویرایش وظیفه")
-                edit_btn.setStyleSheet(glass_btn_style)
-                edit_btn.setFixedSize(20, 20)
-                edit_btn.clicked.connect(partial(self.edit_task, task['id']))
-                btn_layout.addWidget(edit_btn)
-                
-                delete_btn = QtWidgets.QToolButton()
-                delete_btn.setIcon(qta.icon('fa5s.trash-alt', color='#F48771'))
-                delete_btn.setIconSize(QtCore.QSize(12, 12))
-                delete_btn.setToolTip("حذف وظیفه")
-                delete_btn.setStyleSheet(glass_btn_style)
-                delete_btn.setFixedSize(20, 20)
-                delete_btn.clicked.connect(partial(self.delete_task, task['id']))
-                btn_layout.addWidget(delete_btn)
-            else:
-                completed_label = QtWidgets.QLabel("🔒")
-                completed_label.setToolTip("این وظیفه قبلاً تکمیل شده و قابل ویرایش یا حذف نیست")
-                completed_label.setStyleSheet("color: #808080; font-size: 12px;")
-                btn_layout.addWidget(completed_label)
-
-            btn_layout.addStretch()
-            self.tasks_table.setCellWidget(i, 5, btn_widget)
-
-        self.total_tasks_label.setText(f"📋 کل وظایف: {len(tasks)}")
-        self.pending_tasks_label.setText(f"⏳ در انتظار: {pending}")
-        self.done_tasks_label.setText(f"✅ انجام شده: {done}")
-
-    def add_new_task(self):
-        """افزودن وظیفه جدید"""
-        dialog = TaskDialog(self, self.shift_date.date().toString("yyyy-MM-dd"))
-        if dialog.exec_():
-            result = dialog.get_data()
-            self.db.save_daily_task(
-                plan_id=0,
-                task_date=result['date'],
-                task_type=result['task_type'],
-                assigned_to=result['assigned_to'],
-                shift_time=result['shift_time'],
-                notes=result['notes']
-            )
-            self.load_daily_tasks()
-            QtWidgets.QMessageBox.information(self, "موفق", "وظیفه با موفقیت اضافه شد")
-
-    def edit_task(self, task_id):
-        task_date = self.shift_date.date().toString("yyyy-MM-dd")
-        tasks = self.db.get_daily_tasks_by_date(task_date)
-        
-        task = None
-        for t in tasks:
-            if t['id'] == task_id:
-                task = t
-                break
-
-        if not task:
-            QtWidgets.QMessageBox.warning(self, "خطا", "وظیفه یافت نشد")
-            return
-        
-        if hasattr(task['task_date'], 'strftime'):
-            task_date_str = task['task_date'].strftime("%Y-%m-%d")
-        else:
-            task_date_str = str(task['task_date'])
-        
-        task_for_dialog = task.copy()
-        task_for_dialog['task_date'] = task_date_str
-
-        dialog = TaskDialog(self, task_date_str, task_for_dialog)
-        if dialog.exec_():
-            result = dialog.get_data()
-            self.db.delete_task(task_id)
-            self.db.save_daily_task(
-                plan_id=0,
-                task_date=result['date'],
-                task_type=result['task_type'],
-                assigned_to=result['assigned_to'],
-                shift_time=result['shift_time'],
-                notes=result['notes']
-            )
-            self.load_daily_tasks()
-            QtWidgets.QMessageBox.information(self, "موفق", "وظیفه با موفقیت ویرایش شد")
-
-    def complete_task(self, task_id):
-        self.db.update_task_status(task_id, 'done')
-        self.load_daily_tasks()
-
-    def delete_task(self, task_id):
-        reply = QtWidgets.QMessageBox.question(self, "تأیید", "آیا از حذف این وظیفه مطمئن هستید؟", QtWidgets.QMessageBox.Yes | QtWidgets.QMessageBox.No)
-        if reply == QtWidgets.QMessageBox.Yes:
-            self.db.delete_task(task_id)
-            self.load_daily_tasks()
-            QtWidgets.QMessageBox.information(self, "موفق", "وظیفه با موفقیت حذف شد")
-
-    # ==================== تب بودجهبندی سالانه ====================
-
-    def create_budget_tab(self):
+    def create_maintenance_tab(self, glass_btn_style):
+        """ایجاد تب برنامه نت (تعمیرات و نگهداری)"""
         tab = QtWidgets.QWidget()
         layout = QtWidgets.QVBoxLayout(tab)
-        layout.setSpacing(15)
+        layout.setSpacing(10)
 
-        title = QtWidgets.QLabel("📊 بودجهبندی سالانه مزرعه")
-        title.setAlignment(QtCore.Qt.AlignCenter)
-        title.setStyleSheet("font-size: 16px; font-weight: bold; color: #569CD6; padding: 10px;")
-        layout.addWidget(title)
+        # ========== نوار ابزار ==========
+        toolbar = QtWidgets.QHBoxLayout()
+        toolbar.setSpacing(10)
 
-        filter_layout = QtWidgets.QHBoxLayout()
-        filter_layout.setSpacing(15)
+        toolbar.addWidget(QtWidgets.QLabel("نوع تجهیز:"))
+        self.asset_type_combo = QtWidgets.QComboBox()
+        self.asset_type_combo.setEditable(True)
+        self.asset_type_combo.setInsertPolicy(QtWidgets.QComboBox.NoInsert)
+        self.asset_type_combo.addItems(["همه تجهیزات", "mooring", "buoy", "anchor", "net", "cage", "collector"])
+        self.asset_type_combo.setMinimumWidth(150)
+        self.asset_type_combo.currentIndexChanged.connect(self.on_asset_type_changed)
+        self.asset_type_combo.setStyleSheet("""
+            QComboBox {
+                background-color: #3C3C3C;
+                color: #C8C8C8;
+                border: 1px solid #3E3E42;
+                border-radius: 4px;
+                padding: 5px;
+            }
+            QComboBox:hover {
+                border-color: #569CD6;
+            }
+        """)
+        toolbar.addWidget(self.asset_type_combo)
 
-        filter_layout.addWidget(QtWidgets.QLabel("قفس:"))
-        self.budget_cage_combo = QtWidgets.QComboBox()
-        self.budget_cage_combo.setMinimumWidth(120)
-        self.budget_cage_combo.setStyleSheet("background-color: #3C3C3C; color: #C8C8C8; border: 1px solid #3E3E42; border-radius: 4px; padding: 5px;")
-        self.budget_cage_combo.currentIndexChanged.connect(self.update_budget_preview)
-        filter_layout.addWidget(self.budget_cage_combo)
+        toolbar.addSpacing(20)
 
-        filter_layout.addWidget(QtWidgets.QLabel("سال:"))
-        self.budget_year_combo = QtWidgets.QComboBox()
-        current_miladi_year = date.today().year
-        current_shamsi_year = current_miladi_year - 621
-        for y in range(current_shamsi_year - 1, current_shamsi_year + 3):
-            self.budget_year_combo.addItem(str(y), y)
-        self.budget_year_combo.setCurrentIndex(1)
-        self.budget_year_combo.currentIndexChanged.connect(self.update_budget_preview)
-        self.budget_year_combo.setStyleSheet("background-color: #3C3C3C; color: #C8C8C8; border: 1px solid #3E3E42; border-radius: 4px; padding: 5px;")
-        filter_layout.addWidget(self.budget_year_combo)
+        self.new_maintenance_btn = QtWidgets.QToolButton()
+        self.new_maintenance_btn.setIcon(qta.icon('fa5s.plus', color='#C8C8C8'))
+        self.new_maintenance_btn.setIconSize(QtCore.QSize(18, 18))
+        self.new_maintenance_btn.setToolTip("برنامه نت جدید")
+        self.new_maintenance_btn.setStyleSheet(glass_btn_style)
+        self.new_maintenance_btn.clicked.connect(self.create_new_maintenance_plan)
+        toolbar.addWidget(self.new_maintenance_btn)
 
-        filter_layout.addStretch()
-        layout.addLayout(filter_layout)
+        self.refresh_maintenance_btn = QtWidgets.QToolButton()
+        self.refresh_maintenance_btn.setIcon(qta.icon('fa5s.sync-alt', color='#C8C8C8'))
+        self.refresh_maintenance_btn.setIconSize(QtCore.QSize(18, 18))
+        self.refresh_maintenance_btn.setToolTip("به‌روزرسانی")
+        self.refresh_maintenance_btn.setStyleSheet(glass_btn_style)
+        self.refresh_maintenance_btn.clicked.connect(self.refresh_maintenance_data)
+        toolbar.addWidget(self.refresh_maintenance_btn)
 
-        cards_layout = QtWidgets.QHBoxLayout()
-        cards_layout.setSpacing(10)
+        toolbar.addStretch()
+        layout.addLayout(toolbar)
 
-        self.total_revenue_card = self.create_budget_card("💰 درآمد کل", "0 تومان", "#4EC9B0")
-        self.total_cost_card = self.create_budget_card("💸 هزینه کل", "0 تومان", "#F48771")
-        self.net_profit_card = self.create_budget_card("📈 سود خالص", "0 تومان", "#DCDCAA")
-        self.profit_margin_card = self.create_budget_card("🎯 حاشیه سود", "0%", "#569CD6")
+        # ========== بخش اصلی ==========
+        splitter = QtWidgets.QSplitter(QtCore.Qt.Horizontal)
+        splitter.setSizes([300, 700])
 
-        cards_layout.addWidget(self.total_revenue_card)
-        cards_layout.addWidget(self.total_cost_card)
-        cards_layout.addWidget(self.net_profit_card)
-        cards_layout.addWidget(self.profit_margin_card)
-        layout.addLayout(cards_layout)
+        # سمت چپ: لیست برنامه‌های نت
+        left_widget = QtWidgets.QWidget()
+        left_layout = QtWidgets.QVBoxLayout(left_widget)
+        left_layout.setContentsMargins(0, 0, 5, 0)
 
-        monthly_label = QtWidgets.QLabel("📅 بودجه ماهانه")
-        monthly_label.setStyleSheet("font-size: 14px; font-weight: bold; color: #569CD6; margin-top: 10px;")
-        layout.addWidget(monthly_label)
+        left_label = QtWidgets.QLabel("📌 برنامه‌های تعمیرات و نگهداری")
+        left_label.setStyleSheet("color: #C8C8C8; font-weight: bold; padding: 5px;")
+        left_layout.addWidget(left_label)
 
-        self.budget_table = QtWidgets.QTableWidget()
-        self.budget_table.setColumnCount(5)
-        self.budget_table.setHorizontalHeaderLabels(["ماه", "درآمد (تومان)", "هزینه خوراک (تومان)", "سایر هزینه‌ها (تومان)", "سود ماهانه (تومان)"])
-        self.budget_table.horizontalHeader().setStretchLastSection(True)
-        self.budget_table.setColumnWidth(0, 100)
-        self.budget_table.setColumnWidth(1, 200)
-        self.budget_table.setColumnWidth(2, 200)
-        self.budget_table.setColumnWidth(3, 180)
-        self.budget_table.setColumnWidth(4, 200)
-        self.budget_table.setStyleSheet("""
+        self.maintenance_plans_list = QtWidgets.QListWidget()
+        self.maintenance_plans_list.setMinimumHeight(200)
+        self.maintenance_plans_list.itemClicked.connect(self.on_maintenance_plan_selected)
+        self.maintenance_plans_list.setStyleSheet("""
+            QListWidget {
+                background-color: #2D2D30;
+                border: 1px solid #3E3E42;
+                border-radius: 4px;
+                color: #C8C8C8;
+                padding: 5px;
+            }
+            QListWidget::item {
+                padding: 8px;
+                border-bottom: 1px solid #3E3E42;
+            }
+            QListWidget::item:selected {
+                background-color: #3A3A3A;
+            }
+            QListWidget::item:hover {
+                background-color: #353535;
+            }
+        """)
+        left_layout.addWidget(self.maintenance_plans_list)
+
+        # دکمه‌های عملیات روی برنامه نت
+        plan_btn_layout = QtWidgets.QHBoxLayout()
+        plan_btn_layout.setSpacing(5)
+
+        self.edit_maintenance_btn = QtWidgets.QToolButton()
+        self.edit_maintenance_btn.setIcon(qta.icon('fa5s.edit', color='#C8C8C8'))
+        self.edit_maintenance_btn.setIconSize(QtCore.QSize(18, 18))
+        self.edit_maintenance_btn.setToolTip("ویرایش برنامه نت")
+        self.edit_maintenance_btn.clicked.connect(self.edit_maintenance_plan)
+        self.edit_maintenance_btn.setEnabled(False)
+        self.edit_maintenance_btn.setFixedSize(32, 32)
+        self.edit_maintenance_btn.setStyleSheet(glass_btn_style)
+
+        self.delete_maintenance_btn = QtWidgets.QToolButton()
+        self.delete_maintenance_btn.setIcon(qta.icon('fa5s.trash-alt', color='#C8C8C8'))
+        self.delete_maintenance_btn.setIconSize(QtCore.QSize(18, 18))
+        self.delete_maintenance_btn.setToolTip("حذف برنامه نت")
+        self.delete_maintenance_btn.clicked.connect(self.delete_maintenance_plan)
+        self.delete_maintenance_btn.setEnabled(False)
+        self.delete_maintenance_btn.setFixedSize(32, 32)
+        self.delete_maintenance_btn.setStyleSheet(glass_btn_style)
+
+        plan_btn_layout.addWidget(self.edit_maintenance_btn)
+        plan_btn_layout.addWidget(self.delete_maintenance_btn)
+        plan_btn_layout.addStretch()
+        left_layout.addLayout(plan_btn_layout)
+
+        splitter.addWidget(left_widget)
+
+        # سمت راست
+        right_widget = QtWidgets.QWidget()
+        right_layout = QtWidgets.QVBoxLayout(right_widget)
+        right_layout.setContentsMargins(5, 0, 0, 0)
+
+        self.maintenance_plan_info = QtWidgets.QLabel("برنامه‌ای انتخاب نشده است")
+        self.maintenance_plan_info.setStyleSheet("color: #C8C8C8; font-size: 12px; padding: 8px; background-color: #252526; border-radius: 4px;")
+        right_layout.addWidget(self.maintenance_plan_info)
+
+        task_toolbar = QtWidgets.QHBoxLayout()
+        self.add_maintenance_task_btn = QtWidgets.QToolButton()
+        self.add_maintenance_task_btn.setIcon(qta.icon('fa5s.plus', color='#C8C8C8'))
+        self.add_maintenance_task_btn.setIconSize(QtCore.QSize(16, 16))
+        self.add_maintenance_task_btn.setToolTip("افزودن وظیفه")
+        self.add_maintenance_task_btn.setStyleSheet(glass_btn_style)
+        self.add_maintenance_task_btn.clicked.connect(self.add_maintenance_task)
+        self.add_maintenance_task_btn.setEnabled(False)
+
+        task_toolbar.addWidget(self.add_maintenance_task_btn)
+        task_toolbar.addStretch()
+        right_layout.addLayout(task_toolbar)
+
+        self.maintenance_tasks_table = QtWidgets.QTableWidget()
+        self.maintenance_tasks_table.setAlternatingRowColors(True)
+        self.maintenance_tasks_table.setMinimumHeight(300)
+        self.maintenance_tasks_table.setColumnCount(8)
+        self.maintenance_tasks_table.setHorizontalHeaderLabels(["شناسه", "وظیفه", "تاریخ", "زمان", "مدت", "تیم مسئول", "اولویت", "وضعیت"])
+        self.maintenance_tasks_table.horizontalHeader().setStretchLastSection(True)
+        self.maintenance_tasks_table.setColumnWidth(0, 60)
+        self.maintenance_tasks_table.setColumnWidth(1, 220)
+        self.maintenance_tasks_table.setColumnWidth(2, 100)
+        self.maintenance_tasks_table.setColumnWidth(3, 80)
+        self.maintenance_tasks_table.setColumnWidth(4, 80)
+        self.maintenance_tasks_table.setColumnWidth(5, 120)
+        self.maintenance_tasks_table.setStyleSheet("""
             QTableWidget {
-                border: 1px solid #2D2D30;
+                border: 1px solid #3E3E42;
                 border-radius: 4px;
                 background-color: #2D2D30;
                 alternate-background-color: #252526;
+                gridline-color: #3E3E42;
+            }
+            QTableWidget::item {
+                padding: 8px 5px;
             }
             QTableWidget::item:selected {
-                background-color: #0E639C;
+                background-color: #3A3A3A;
+            }
+            QTableWidget::item:hover {
+                background-color: #353535;
             }
             QHeaderView::section {
                 background-color: #252526;
-                color: #569CD6;
-                border: none;
-                border-bottom: 1px solid #2D2D30;
-                padding: 6px;
-            }
-        """)
-        layout.addWidget(self.budget_table)
-
-        settings_group = QtWidgets.QGroupBox("⚙️ تنظیمات بودجه (اعداد به تومان)")
-        settings_group.setStyleSheet("""
-            QGroupBox {
-                border: 1px solid #2D2D30;
-                border-radius: 5px;
-                margin-top: 10px;
-                padding-top: 10px;
                 color: #C8C8C8;
-            }
-            QGroupBox::title {
-                color: #569CD6;
+                border: none;
+                border-bottom: 1px solid #3E3E42;
+                padding: 8px;
+                font-weight: bold;
             }
         """)
-        settings_layout = QtWidgets.QHBoxLayout(settings_group)
-        settings_layout.setSpacing(15)
+        right_layout.addWidget(self.maintenance_tasks_table)
 
-        settings_layout.addWidget(QtWidgets.QLabel("قیمت خوراک (هر کیلوگرم):"))
-        self.feed_price = QtWidgets.QDoubleSpinBox()
-        self.feed_price.setRange(1000, 10000000)
-        self.feed_price.setValue(25000)
-        self.feed_price.setSuffix(" تومان")
-        self.feed_price.setStyleSheet("background-color: #3C3C3C; color: #C8C8C8; border: 1px solid #3E3E42; border-radius: 4px; padding: 5px;")
-        self.feed_price.valueChanged.connect(self.update_budget_preview)
-        settings_layout.addWidget(self.feed_price)
-
-        settings_layout.addWidget(QtWidgets.QLabel("قیمت فروش (هر کیلوگرم ماهی):"))
-        self.fish_price = QtWidgets.QDoubleSpinBox()
-        self.fish_price.setRange(10000, 10000000)
-        self.fish_price.setValue(120000)
-        self.fish_price.setSuffix(" تومان")
-        self.fish_price.setStyleSheet("background-color: #3C3C3C; color: #C8C8C8; border: 1px solid #3E3E42; border-radius: 4px; padding: 5px;")
-        self.fish_price.valueChanged.connect(self.update_budget_preview)
-        settings_layout.addWidget(self.fish_price)
-
-        settings_layout.addWidget(QtWidgets.QLabel("سایر هزینه‌های ماهانه:"))
-        self.other_cost = QtWidgets.QDoubleSpinBox()
-        self.other_cost.setRange(0, 5000000000)
-        self.other_cost.setValue(5000000)
-        self.other_cost.setSuffix(" تومان")
-        self.other_cost.setStyleSheet("background-color: #3C3C3C; color: #C8C8C8; border: 1px solid #3E3E42; border-radius: 4px; padding: 5px;")
-        self.other_cost.valueChanged.connect(self.update_budget_preview)
-        settings_layout.addWidget(self.other_cost)
-
-        settings_layout.addStretch()
-        layout.addWidget(settings_group)
+        splitter.addWidget(right_widget)
+        layout.addWidget(splitter, 1)
 
         return tab
 
-    def create_budget_card(self, title, default_value, color):
-        card = QtWidgets.QFrame()
-        card.setFixedHeight(85)
-        card.setStyleSheet(f"""
-            QFrame {{
-                background-color: #1E1E1E;
-                border: 1px solid #3E3E42;
+    def setup_status_bar(self, parent_layout):
+        """تنظیم نوار وضعیت پایینی"""
+        status_frame = QtWidgets.QFrame()
+        status_frame.setStyleSheet("""
+            QFrame {
+                background-color: #252526;
                 border-radius: 8px;
-            }}
+                padding: 8px;
+                margin-top: 5px;
+            }
         """)
-        layout = QtWidgets.QVBoxLayout(card)
-        layout.setContentsMargins(10, 8, 10, 8)
+        status_layout = QtWidgets.QHBoxLayout(status_frame)
+        status_layout.setSpacing(20)
 
-        title_label = QtWidgets.QLabel(title)
-        title_label.setStyleSheet(f"font-size: 11px; color: {color}; font-weight: bold;")
-        title_label.setAlignment(QtCore.Qt.AlignCenter)
-        layout.addWidget(title_label)
+        self.total_tasks_label = QtWidgets.QLabel("📋 کل وظایف: 0")
+        self.completed_tasks_label = QtWidgets.QLabel("✅ انجام شده: 0")
+        self.pending_tasks_label = QtWidgets.QLabel("⏳ در انتظار: 0")
+        self.delayed_tasks_label = QtWidgets.QLabel("⚠️ تاخیر: 0")
 
-        value_label = QtWidgets.QLabel(default_value)
-        value_label.setStyleSheet("font-size: 16px; font-weight: bold; color: #C8C8C8;")
-        value_label.setAlignment(QtCore.Qt.AlignCenter)
-        layout.addWidget(value_label)
+        for label in [self.total_tasks_label, self.completed_tasks_label, self.pending_tasks_label, self.delayed_tasks_label]:
+            label.setStyleSheet("color: #C8C8C8; font-size: 12px; padding: 5px;")
+            status_layout.addWidget(label)
 
-        card.value_label = value_label
-        return card
+        status_layout.addStretch()
+        parent_layout.addWidget(status_frame)
 
-    def update_budget_preview(self):
-        try:
-            cage_id = self.budget_cage_combo.currentData() if self.budget_cage_combo.count() > 0 else None
-            selected_year = self.budget_year_combo.currentData() if self.budget_year_combo.count() > 0 else 1405
-            feed_price_kg = self.feed_price.value()
-            fish_price_kg = self.fish_price.value()
-            other_cost_monthly = self.other_cost.value()
+    # ==================== توابع برنامه پرورش ====================
 
-            months_name = ["فروردین", "اردیبهشت", "خرداد", "تیر", "مرداد", "شهریور", 
-                           "مهر", "آبان", "آذر", "دی", "بهمن", "اسفند"]
-            
-            monthly_revenues = [0] * 12
-            monthly_feed_costs = [0] * 12
-            
-            plans = self.db.get_production_plans_by_cage(cage_id) if cage_id else []
-            
-            for plan in plans:
-                try:
-                    stocking_date = plan.get('planned_stocking_date')
-                    harvest_date = plan.get('planned_harvest_date')
-                    total_feed_kg = float(plan.get('estimated_feed_required', 0))
-                    
-                    if stocking_date and harvest_date and total_feed_kg > 0:
-                        if hasattr(stocking_date, 'strftime'):
-                            start_str = stocking_date.strftime("%Y-%m-%d")
-                        else:
-                            start_str = str(stocking_date)
-                        
-                        if hasattr(harvest_date, 'strftime'):
-                            end_str = harvest_date.strftime("%Y-%m-%d")
-                        else:
-                            end_str = str(harvest_date)
-                        
-                        start_parts = start_str.split('-')
-                        end_parts = end_str.split('-')
-                        
-                        if len(start_parts) >= 2 and len(end_parts) >= 2:
-                            start_month = int(start_parts[1]) - 1
-                            end_month = int(end_parts[1]) - 1
-                            start_year = int(start_parts[0])
-                            end_year = int(end_parts[0])
-                            
-                            monthly_feeds = self.distribute_feed_over_months(
-                                total_feed_kg, start_year, start_month, end_year, end_month
-                            )
-                            
-                            for i in range(12):
-                                monthly_feed_costs[i] += monthly_feeds[i] * feed_price_kg
-                except:
-                    pass
-            
-            try:
-                if cage_id:
-                    query = "SELECT harvest_date, total_weight_kg FROM harvests WHERE cage_id = %s"
-                    harvests = self.db.fetch_all(query, (cage_id,))
-                    
-                    for harvest in harvests:
-                        harvest_date = harvest.get('harvest_date')
-                        total_weight_kg = harvest.get('total_weight_kg', 0)
-                        
-                        if harvest_date and total_weight_kg > 0:
-                            date_parts = str(harvest_date).split('/')
-                            if len(date_parts) == 3:
-                                year = int(date_parts[0])
-                                month = int(date_parts[1]) - 1
-                                if year == selected_year:
-                                    revenue = total_weight_kg * fish_price_kg
-                                    monthly_revenues[month] += revenue
-            except:
-                pass
-            
-            total_revenue = sum(monthly_revenues)
-            total_feed_cost = sum(monthly_feed_costs)
-            total_other_cost = other_cost_monthly * 12
-            total_cost = total_feed_cost + total_other_cost
-            net_profit = total_revenue - total_cost
-            profit_margin = (net_profit / total_revenue * 100) if total_revenue > 0 else 0
+    def load_data(self):
+        """بارگذاری داده‌ها"""
+        self.load_cages()
+        self.load_production_plans()
+        self.load_maintenance_plans()
 
-            self.total_revenue_card.value_label.setText(f"{total_revenue:,.0f} تومان")
-            self.total_cost_card.value_label.setText(f"{total_cost:,.0f} تومان")
-            self.net_profit_card.value_label.setText(f"{net_profit:,.0f} تومان")
-            self.profit_margin_card.value_label.setText(f"{profit_margin:.1f}%")
+    def refresh_production_data(self):
+        """به‌روزرسانی داده‌های تب پرورش"""
+        self.load_production_plans()
+        if self.current_plan_id:
+            self.load_production_tasks()
+        QtWidgets.QMessageBox.information(self, "به‌روزرسانی", "داده‌های برنامه پرورش به‌روزرسانی شد")
 
-            self.budget_table.setRowCount(12)
-            for i, month_name in enumerate(months_name):
-                revenue = monthly_revenues[i]
-                feed_cost = monthly_feed_costs[i]
-                profit = revenue - feed_cost - other_cost_monthly
-                
-                self.budget_table.setItem(i, 0, QtWidgets.QTableWidgetItem(month_name))
-                
-                revenue_item = QtWidgets.QTableWidgetItem(f"{revenue:,.0f}")
-                revenue_item.setForeground(QtGui.QColor("#4EC9B0") if revenue > 0 else QtGui.QColor("#808080"))
-                self.budget_table.setItem(i, 1, revenue_item)
-                
-                feed_item = QtWidgets.QTableWidgetItem(f"{feed_cost:,.0f}")
-                feed_item.setForeground(QtGui.QColor("#F48771"))
-                self.budget_table.setItem(i, 2, feed_item)
-                
-                other_item = QtWidgets.QTableWidgetItem(f"{other_cost_monthly:,.0f}")
-                other_item.setForeground(QtGui.QColor("#DCDCAA"))
-                self.budget_table.setItem(i, 3, other_item)
-                
-                profit_color = "#4EC9B0" if profit >= 0 else "#F48771"
-                profit_item = QtWidgets.QTableWidgetItem(f"{profit:,.0f}")
-                profit_item.setForeground(QtGui.QColor(profit_color))
-                self.budget_table.setItem(i, 4, profit_item)
+    def refresh_maintenance_data(self):
+        """به‌روزرسانی داده‌های تب نت"""
+        self.load_maintenance_plans()
+        if self.current_maintenance_plan_id:
+            self.load_maintenance_tasks()
+        QtWidgets.QMessageBox.information(self, "به‌روزرسانی", "داده‌های برنامه نت به‌روزرسانی شد")
 
-        except Exception as e:
-            print(f"خطا در بروزرسانی بودجه: {e}")
+    def load_cages(self):
+        """بارگذاری لیست قفس‌ها"""
+        self.cage_combo.clear()
+        cages = self.db.fetch_all("SELECT id FROM cages ORDER BY id")
+        if cages:
+            for cage in cages:
+                self.cage_combo.addItem(cage['id'], cage['id'])
+            if self.cage_combo.count() > 0:
+                self.cage_combo.setCurrentIndex(0)
+        else:
+            self.cage_combo.addItem("--- هیچ قفسی موجود نیست ---")
+
+    def on_cage_changed(self):
+        """تغییر قفس"""
+        self.load_production_plans()
+        self.current_plan_id = None
+        self.production_plan_info.setText("برنامه‌ای انتخاب نشده است")
+        self.production_tasks_table.setRowCount(0)
+        self.submit_production_btn.setEnabled(False)
+        self.add_production_task_btn.setEnabled(False)
+        self.edit_production_btn.setEnabled(False)
+        self.delete_production_btn.setEnabled(False)
+
+    def load_production_plans(self):
+        """بارگذاری لیست برنامه‌های پرورش"""
+        self.production_plans_list.clear()
+        cage_id = self.cage_combo.currentData()
+        if not cage_id or cage_id == "--- هیچ قفسی موجود نیست ---":
+            return
+
+        plans = self.db.get_all_production_plans(cage_id)
+
+        status_icons = {'draft': '📝', 'submitted': '📤', 'approved': '✅', 'in_progress': '⚙️', 'completed': '✔️', 'cancelled': '❌'}
+
+        for plan in plans:
+            icon = status_icons.get(plan['plan_status'], '📝')
+            item_text = f"{icon} {plan['plan_title']} ({plan['start_date']} تا {plan['end_date']})"
+            item = QtWidgets.QListWidgetItem(item_text)
+            item.setData(QtCore.Qt.UserRole, plan['id'])
+            self.production_plans_list.addItem(item)
+
+    def on_production_plan_selected(self, item):
+        """انتخاب برنامه پرورش"""
+        self.current_plan_id = item.data(QtCore.Qt.UserRole)
+        self.load_production_plan_info()
+        self.load_production_tasks()
+        self.submit_production_btn.setEnabled(True)
+        self.add_production_task_btn.setEnabled(True)
+        self.edit_production_btn.setEnabled(True)
+        self.delete_production_btn.setEnabled(True)
+
+    def load_production_plan_info(self):
+        """بارگذاری اطلاعات برنامه پرورش"""
+        if not self.current_plan_id:
+            return
+        plan = self.db.get_production_plan_by_id(self.current_plan_id)
+        if plan:
+            status_names = {'draft': 'پیش‌نویس', 'submitted': 'ارسال شده', 'approved': 'تایید شده', 'in_progress': 'در حال اجرا', 'completed': 'تکمیل شده', 'cancelled': 'لغو شده'}
+            self.production_plan_info.setText(f"📋 {plan['plan_title']} | {plan['start_date']} تا {plan['end_date']} | وضعیت: {status_names.get(plan['plan_status'], plan['plan_status'])}")
+
+    def load_production_tasks(self):
+        """بارگذاری وظایف برنامه پرورش"""
+        if not self.current_plan_id:
+            return
+        tasks = self.db.get_plan_tasks(self.current_plan_id)
+        self.production_tasks_table.setRowCount(len(tasks))
+        status_icons = {'pending': '⏳ در انتظار', 'in_progress': '🔄 در حال انجام', 'completed': '✅ انجام شده', 'delayed': '⚠️ تاخیر', 'cancelled': '❌ لغو شده'}
+        priority_colors = {1: '#F48771', 2: '#DCDCAA', 3: '#C8C8C8'}
+
+        for i, task in enumerate(tasks):
+            self.production_tasks_table.setItem(i, 0, QtWidgets.QTableWidgetItem(str(task['id'])))
+            self.production_tasks_table.setItem(i, 1, QtWidgets.QTableWidgetItem(task['task_title']))
+            self.production_tasks_table.setItem(i, 2, QtWidgets.QTableWidgetItem(str(task['scheduled_date'])))
+            self.production_tasks_table.setItem(i, 3, QtWidgets.QTableWidgetItem(str(task['scheduled_start_time'])[:5] if task['scheduled_start_time'] else "-"))
+            self.production_tasks_table.setItem(i, 4, QtWidgets.QTableWidgetItem(str(task['estimated_duration_minutes'])))
+            self.production_tasks_table.setItem(i, 5, QtWidgets.QTableWidgetItem(task['assigned_to_unit'] or "-"))
+            priority_item = QtWidgets.QTableWidgetItem(str(task['priority_level']))
+            priority_item.setForeground(QtGui.QColor(priority_colors.get(task['priority_level'], '#C8C8C8')))
+            self.production_tasks_table.setItem(i, 6, priority_item)
+            status_item = QtWidgets.QTableWidgetItem(status_icons.get(task['execution_status'], '⏳ در انتظار'))
+            if task['execution_status'] == 'completed':
+                status_item.setForeground(QtGui.QColor('#4EC9B0'))
+            elif task['execution_status'] == 'delayed':
+                status_item.setForeground(QtGui.QColor('#F48771'))
+            self.production_tasks_table.setItem(i, 7, status_item)
+
+        self.update_task_stats(tasks)
+
+    def update_task_stats(self, tasks):
+        """به‌روزرسانی آمار"""
+        total = len(tasks)
+        completed = sum(1 for t in tasks if t['execution_status'] == 'completed')
+        pending = sum(1 for t in tasks if t['execution_status'] == 'pending')
+        delayed = sum(1 for t in tasks if t['execution_status'] == 'delayed')
+        self.total_tasks_label.setText(f"📋 کل وظایف: {total}")
+        self.completed_tasks_label.setText(f"✅ انجام شده: {completed}")
+        self.pending_tasks_label.setText(f"⏳ در انتظار: {pending}")
+        self.delayed_tasks_label.setText(f"⚠️ تاخیر: {delayed}")
+
+    def create_new_production_plan(self):
+        """ایجاد برنامه پرورش جدید"""
+        cage_id = self.cage_combo.currentData()
+        if not cage_id or cage_id == "--- هیچ قفسی موجود نیست ---":
+            QtWidgets.QMessageBox.warning(self, "خطا", "لطفاً ابتدا یک قفس را انتخاب کنید")
+            return
+        dialog = PlanDialog(self, cage_id)
+        if dialog.exec_():
+            self.load_production_plans()
+            QtWidgets.QMessageBox.information(self, "موفق", "برنامه پرورش جدید با موفقیت ایجاد شد")
+
+    def edit_production_plan(self):
+        """ویرایش برنامه پرورش"""
+        if not self.current_plan_id:
+            return
+        plan = self.db.get_production_plan_by_id(self.current_plan_id)
+        if not plan:
+            return
+        if plan['plan_status'] not in ['draft', 'cancelled']:
+            QtWidgets.QMessageBox.warning(self, "خطا", "فقط برنامه‌های در وضعیت پیش‌نویس یا لغو شده قابل ویرایش هستند")
+            return
+        dialog = PlanDialog(self, plan['cage_id'], plan)
+        if dialog.exec_():
+            self.load_production_plans()
+            self.load_production_plan_info()
+            self.load_production_tasks()
+
+    def delete_production_plan(self):
+        """حذف برنامه پرورش"""
+        if not self.current_plan_id:
+            return
+        reply = QtWidgets.QMessageBox.question(self, "تأیید حذف", "آیا از حذف این برنامه و تمام وظایف آن مطمئن هستید؟", QtWidgets.QMessageBox.Yes | QtWidgets.QMessageBox.No)
+        if reply == QtWidgets.QMessageBox.Yes:
+            self.db.delete_production_plan(self.current_plan_id)
+            self.current_plan_id = None
+            self.load_production_plans()
+            self.production_tasks_table.setRowCount(0)
+            self.production_plan_info.setText("برنامه‌ای انتخاب نشده است")
+            self.submit_production_btn.setEnabled(False)
+            self.add_production_task_btn.setEnabled(False)
+            self.edit_production_btn.setEnabled(False)
+            self.delete_production_btn.setEnabled(False)
+            QtWidgets.QMessageBox.information(self, "موفق", "برنامه با موفقیت حذف شد")
+
+    def submit_production_plan(self):
+        """ارسال برنامه پرورش"""
+        if not self.current_plan_id:
+            return
+        plan = self.db.get_production_plan_by_id(self.current_plan_id)
+        if plan['plan_status'] != 'draft':
+            QtWidgets.QMessageBox.warning(self, "خطا", "فقط برنامه‌های در وضعیت پیش‌نویس قابل ارسال هستند")
+            return
+        tasks = self.db.get_plan_tasks(self.current_plan_id)
+        if len(tasks) == 0:
+            QtWidgets.QMessageBox.warning(self, "خطا", "برنامه بدون وظیفه قابل ارسال نیست")
+            return
+        reply = QtWidgets.QMessageBox.question(self, "تأیید ارسال", "آیا از ارسال این برنامه به واحدها مطمئن هستید؟", QtWidgets.QMessageBox.Yes | QtWidgets.QMessageBox.No)
+        if reply == QtWidgets.QMessageBox.Yes:
+            self.db.update_plan_status(self.current_plan_id, 'submitted')
+            self.load_production_plan_info()
+            self.load_production_plans()
+            QtWidgets.QMessageBox.information(self, "موفق", "برنامه با موفقیت ارسال شد")
+
+    def add_production_task(self):
+        """افزودن وظیفه به برنامه پرورش"""
+        if not self.current_plan_id:
+            QtWidgets.QMessageBox.warning(self, "خطا", "لطفاً ابتدا یک برنامه را انتخاب کنید")
+            return
+        dialog = TaskDialog(self, self.current_plan_id, is_maintenance=False)
+        if dialog.exec_():
+            self.load_production_tasks()
+            QtWidgets.QMessageBox.information(self, "موفق", "وظیفه با موفقیت اضافه شد")
+
+    # ==================== توابع برنامه نت ====================
+
+    def on_asset_type_changed(self):
+        """تغییر نوع تجهیز"""
+        self.load_maintenance_plans()
+        self.current_maintenance_plan_id = None
+        self.maintenance_plan_info.setText("برنامه‌ای انتخاب نشده است")
+        self.maintenance_tasks_table.setRowCount(0)
+        self.add_maintenance_task_btn.setEnabled(False)
+        self.edit_maintenance_btn.setEnabled(False)
+        self.delete_maintenance_btn.setEnabled(False)
+
+    def load_maintenance_plans(self):
+        """بارگذاری لیست برنامه‌های نت"""
+        self.maintenance_plans_list.clear()
+        
+        asset_type = self.asset_type_combo.currentText()
+        if asset_type == "همه تجهیزات":
+            asset_type = None
+        
+        plans = self.db.get_maintenance_plans(asset_type)
+        
+        status_icons = {'draft': '📝', 'submitted': '📤', 'approved': '✅', 'in_progress': '⚙️', 'completed': '✔️', 'cancelled': '❌'}
+        
+        for plan in plans:
+            icon = status_icons.get(plan['plan_status'], '📝')
+            asset_name = plan['asset_type']
+            item_text = f"{icon} {plan['plan_title']} ({asset_name}) - {plan['start_date']} تا {plan['end_date']}"
+            item = QtWidgets.QListWidgetItem(item_text)
+            item.setData(QtCore.Qt.UserRole, plan['id'])
+            self.maintenance_plans_list.addItem(item)
+        
+        if len(plans) == 0:
+            self.maintenance_plans_list.addItem("--- هیچ برنامه‌ای وجود ندارد ---")
+
+    def on_maintenance_plan_selected(self, item):
+        """انتخاب برنامه نت"""
+        self.current_maintenance_plan_id = item.data(QtCore.Qt.UserRole)
+        self.load_maintenance_plan_info()
+        self.load_maintenance_tasks()
+        self.add_maintenance_task_btn.setEnabled(True)
+        self.edit_maintenance_btn.setEnabled(True)
+        self.delete_maintenance_btn.setEnabled(True)
+
+    def load_maintenance_plan_info(self):
+        """بارگذاری اطلاعات برنامه نت"""
+        if not self.current_maintenance_plan_id:
+            return
+        plan = self.db.fetch_one("SELECT * FROM maintenance_plans WHERE id = %s", (self.current_maintenance_plan_id,))
+        if plan:
+            status_names = {'draft': 'پیش‌نویس', 'submitted': 'ارسال شده', 'approved': 'تایید شده', 'in_progress': 'در حال اجرا', 'completed': 'تکمیل شده', 'cancelled': 'لغو شده'}
+            self.maintenance_plan_info.setText(f"🛠️ {plan['plan_title']} | {plan['start_date']} تا {plan['end_date']} | وضعیت: {status_names.get(plan['plan_status'], plan['plan_status'])}")
+
+    def load_maintenance_tasks(self):
+        """بارگذاری وظایف برنامه نت"""
+        if not self.current_maintenance_plan_id:
+            return
+        tasks = self.db.get_maintenance_tasks(self.current_maintenance_plan_id)
+        self.maintenance_tasks_table.setRowCount(len(tasks))
+        status_icons = {'pending': '⏳ در انتظار', 'in_progress': '🔄 در حال انجام', 'completed': '✅ انجام شده', 'delayed': '⚠️ تاخیر', 'cancelled': '❌ لغو شده'}
+        priority_colors = {1: '#F48771', 2: '#DCDCAA', 3: '#C8C8C8'}
+
+        for i, task in enumerate(tasks):
+            self.maintenance_tasks_table.setItem(i, 0, QtWidgets.QTableWidgetItem(str(task['id'])))
+            self.maintenance_tasks_table.setItem(i, 1, QtWidgets.QTableWidgetItem(task['task_title']))
+            self.maintenance_tasks_table.setItem(i, 2, QtWidgets.QTableWidgetItem(str(task['scheduled_date'])))
+            self.maintenance_tasks_table.setItem(i, 3, QtWidgets.QTableWidgetItem(str(task['scheduled_start_time'])[:5] if task['scheduled_start_time'] else "-"))
+            self.maintenance_tasks_table.setItem(i, 4, QtWidgets.QTableWidgetItem(str(task['estimated_duration_minutes'])))
+            self.maintenance_tasks_table.setItem(i, 5, QtWidgets.QTableWidgetItem(task['assigned_to_team'] or "-"))
+            priority_item = QtWidgets.QTableWidgetItem(str(task['priority_level']))
+            priority_item.setForeground(QtGui.QColor(priority_colors.get(task['priority_level'], '#C8C8C8')))
+            self.maintenance_tasks_table.setItem(i, 6, priority_item)
+            status_item = QtWidgets.QTableWidgetItem(status_icons.get(task['execution_status'], '⏳ در انتظار'))
+            if task['execution_status'] == 'completed':
+                status_item.setForeground(QtGui.QColor('#4EC9B0'))
+            elif task['execution_status'] == 'delayed':
+                status_item.setForeground(QtGui.QColor('#F48771'))
+            self.maintenance_tasks_table.setItem(i, 7, status_item)
+
+    def create_new_maintenance_plan(self):
+        """ایجاد برنامه نت جدید"""
+        dialog = MaintenancePlanDialog(self)
+        if dialog.exec_():
+            self.load_maintenance_plans()
+            QtWidgets.QMessageBox.information(self, "موفق", "برنامه نت جدید با موفقیت ایجاد شد")
+
+    def edit_maintenance_plan(self):
+        """ویرایش برنامه نت"""
+        if not self.current_maintenance_plan_id:
+            return
+        plan = self.db.fetch_one("SELECT * FROM maintenance_plans WHERE id = %s", (self.current_maintenance_plan_id,))
+        if not plan:
+            return
+        if plan['plan_status'] not in ['draft', 'cancelled']:
+            QtWidgets.QMessageBox.warning(self, "خطا", "فقط برنامه‌های در وضعیت پیش‌نویس یا لغو شده قابل ویرایش هستند")
+            return
+        dialog = MaintenancePlanDialog(self, plan)
+        if dialog.exec_():
+            self.load_maintenance_plans()
+            self.load_maintenance_plan_info()
+            self.load_maintenance_tasks()
+
+    def delete_maintenance_plan(self):
+        """حذف برنامه نت"""
+        if not self.current_maintenance_plan_id:
+            return
+        reply = QtWidgets.QMessageBox.question(self, "تأیید حذف", "آیا از حذف این برنامه نت و تمام وظایف آن مطمئن هستید؟", QtWidgets.QMessageBox.Yes | QtWidgets.QMessageBox.No)
+        if reply == QtWidgets.QMessageBox.Yes:
+            self.db.delete_maintenance_plan(self.current_maintenance_plan_id)
+            self.current_maintenance_plan_id = None
+            self.load_maintenance_plans()
+            self.maintenance_tasks_table.setRowCount(0)
+            self.maintenance_plan_info.setText("برنامه‌ای انتخاب نشده است")
+            self.add_maintenance_task_btn.setEnabled(False)
+            self.edit_maintenance_btn.setEnabled(False)
+            self.delete_maintenance_btn.setEnabled(False)
+            QtWidgets.QMessageBox.information(self, "موفق", "برنامه نت با موفقیت حذف شد")
+
+    def add_maintenance_task(self):
+        """افزودن وظیفه به برنامه نت"""
+        if not self.current_maintenance_plan_id:
+            QtWidgets.QMessageBox.warning(self, "خطا", "لطفاً ابتدا یک برنامه نت را انتخاب کنید")
+            return
+        dialog = MaintenanceTaskDialog(self, self.current_maintenance_plan_id)
+        if dialog.exec_():
+            self.load_maintenance_tasks()
+            QtWidgets.QMessageBox.information(self, "موفق", "وظیفه با موفقیت اضافه شد")
 
 
-class TaskDialog(QtWidgets.QDialog):
-    """دیالوگ افزودن/ویرایش وظیفه - با اتصال به چارت سازمانی"""
+class PlanDialog(QtWidgets.QDialog):
+    """دیالوگ ایجاد/ویرایش برنامه پرورش"""
 
-    def __init__(self, parent=None, default_date="", task=None):
+    def __init__(self, parent=None, cage_id=None, plan=None):
         super().__init__(parent)
-        self.setWindowTitle("➕ افزودن وظیفه جدید" if not task else "✏️ ویرایش وظیفه")
+        self.db = DatabaseHandler()
+        self.cage_id = cage_id
+        self.plan = plan
+        self.setWindowTitle("ایجاد برنامه پرورش جدید" if not plan else "ویرایش برنامه پرورش")
         self.setModal(True)
-        self.resize(450, 480)
-        self.default_date = default_date
-        self.task = task
+        self.resize(500, 450)
         self.setup_ui()
-        if task:
-            self.load_task_data()
+        if plan:
+            self.load_plan_data()
 
     def setup_ui(self):
         layout = QtWidgets.QFormLayout(self)
-        layout.setSpacing(12)
         layout.setLabelAlignment(QtCore.Qt.AlignRight)
+        layout.setSpacing(12)
+        layout.setContentsMargins(20, 20, 20, 20)
 
-        label_style = "color: #C8C8C8; min-width: 80px;"
-        input_style = """
-            background-color: #3C3C3C;
-            color: #C8C8C8;
-            border: 1px solid #2D2D30;
-            border-radius: 4px;
-            padding: 8px;
-            min-height: 32px;
-        """
+        self.title_edit = QtWidgets.QLineEdit()
+        self.title_edit.setPlaceholderText("مثال: برنامه پرورش خرداد ۱۴۰۵")
+        self.title_edit.setMinimumHeight(30)
+        layout.addRow("عنوان برنامه:", self.title_edit)
 
-        self.date_edit = QtWidgets.QDateEdit()
-        self.date_edit.setCalendarPopup(True)
-        if self.default_date:
-            if isinstance(self.default_date, str):
-                date_parts = self.default_date.split('-')
-                self.date_edit.setDate(QtCore.QDate(int(date_parts[0]), int(date_parts[1]), int(date_parts[2])))
-            else:
-                self.date_edit.setDate(QtCore.QDate.currentDate())
-        self.date_edit.setStyleSheet(input_style)
-        date_lbl = QtWidgets.QLabel("تاریخ:")
-        date_lbl.setStyleSheet(label_style)
-        layout.addRow(date_lbl, self.date_edit)
+        self.type_combo = QtWidgets.QComboBox()
+        self.type_combo.addItems(["weekly", "monthly"])
+        layout.addRow("نوع برنامه:", self.type_combo)
 
-        self.task_type = QtWidgets.QComboBox()
-        self.task_type.addItems(["تغذیه", "نمونهبرداری", "بازرسی تور", "ثبت تلفات", "نگهداری", "تعمیرات", "برداشت", "سایر"])
-        self.task_type.setStyleSheet(input_style)
-        task_lbl = QtWidgets.QLabel("نوع وظیفه:")
-        task_lbl.setStyleSheet(label_style)
-        layout.addRow(task_lbl, self.task_type)
+        self.start_date = JalaliDateEdit()
+        layout.addRow("تاریخ شروع:", self.start_date)
 
-        self.shift_time = QtWidgets.QComboBox()
-        self.shift_time.addItems(["صبح (6-9)", "قبل از ظهر (9-12)", "بعد از ظهر (12-15)", "عصر (15-18)", "شب (18-21)"])
-        self.shift_time.setStyleSheet(input_style)
-        shift_lbl = QtWidgets.QLabel("زمان:")
-        shift_lbl.setStyleSheet(label_style)
-        layout.addRow(shift_lbl, self.shift_time)
-
-        # ========== مسئول (اتصال به چارت سازمانی) ==========
-        self.assigned_to = QtWidgets.QComboBox()
-        self.assigned_to.addItem("--- انتخاب کنید ---")
-        self.assigned_to.setStyleSheet(input_style)
-        
-        # پر کردن از دیتابیس چارت سازمانی
-        try:
-            from ..database.db_handler import DatabaseHandler
-            db = DatabaseHandler()
-            personnel = db.db.fetch_all("SELECT id, name FROM org_personnel ORDER BY name")
-            for p in personnel:
-                self.assigned_to.addItem(p['name'], p['id'])
-        except Exception as e:
-            print(f"خطا در بارگذاری پرسنل: {e}")
-        
-        assigned_lbl = QtWidgets.QLabel("مسئول:")
-        assigned_lbl.setStyleSheet(label_style)
-        layout.addRow(assigned_lbl, self.assigned_to)
-
-        self.priority = QtWidgets.QComboBox()
-        self.priority.addItems(["عادی", "بالا", "فوری"])
-        self.priority.setStyleSheet(input_style)
-        priority_lbl = QtWidgets.QLabel("اولویت:")
-        priority_lbl.setStyleSheet(label_style)
-        layout.addRow(priority_lbl, self.priority)
+        self.end_date = JalaliDateEdit()
+        layout.addRow("تاریخ پایان:", self.end_date)
 
         self.notes = QtWidgets.QTextEdit()
-        self.notes.setMaximumHeight(80)
-        self.notes.setPlaceholderText("توضیحات اضافی...")
-        self.notes.setStyleSheet(f"{input_style} max-height: 80px;")
-        notes_lbl = QtWidgets.QLabel("یادداشت:")
-        notes_lbl.setStyleSheet(label_style)
-        layout.addRow(notes_lbl, self.notes)
+        self.notes.setMaximumHeight(100)
+        layout.addRow("یادداشت:", self.notes)
 
         btn_layout = QtWidgets.QHBoxLayout()
         ok_btn = QtWidgets.QPushButton("ذخیره")
         ok_btn.setMinimumHeight(35)
-        ok_btn.setStyleSheet("""
-            QPushButton {
-                background-color: rgba(86, 156, 214, 80);
-                color: white;
-                padding: 8px 16px;
-                border-radius: 4px;
-                border: none;
-            }
-            QPushButton:hover {
-                background-color: rgba(86, 156, 214, 120);
-            }
-        """)
-        ok_btn.clicked.connect(self.accept)
+        ok_btn.setStyleSheet("background-color: rgba(60, 60, 65, 180); color: #C8C8C8; border-radius: 4px; padding: 6px 20px;")
         cancel_btn = QtWidgets.QPushButton("انصراف")
         cancel_btn.setMinimumHeight(35)
-        cancel_btn.setStyleSheet("""
-            QPushButton {
-                background-color: #3C3C3C;
-                color: #C8C8C8;
-                border: 1px solid #2D2D30;
-                border-radius: 4px;
-                padding: 8px 16px;
-            }
-        """)
+        cancel_btn.setStyleSheet("background-color: rgba(60, 60, 65, 180); color: #C8C8C8; border-radius: 4px; padding: 6px 20px;")
         cancel_btn.clicked.connect(self.reject)
+        ok_btn.clicked.connect(self.accept)
         btn_layout.addWidget(ok_btn)
         btn_layout.addWidget(cancel_btn)
         layout.addRow(btn_layout)
 
+    def load_plan_data(self):
+        self.title_edit.setText(self.plan['plan_title'])
+        idx = self.type_combo.findText(self.plan['plan_type'])
+        if idx >= 0:
+            self.type_combo.setCurrentIndex(idx)
+        self.start_date.set_jalali_date(self.plan['start_date'])
+        self.end_date.set_jalali_date(self.plan['end_date'])
+        self.notes.setText(self.plan['notes'] or "")
+
+    def accept(self):
+        if not self.title_edit.text().strip():
+            QtWidgets.QMessageBox.warning(self, "خطا", "لطفاً عنوان برنامه را وارد کنید")
+            return
+        if self.start_date.get_jalali_date() > self.end_date.get_jalali_date():
+            QtWidgets.QMessageBox.warning(self, "خطا", "تاریخ شروع نباید از تاریخ پایان بزرگتر باشد")
+            return
+        if self.plan:
+            self.db.update_production_plan(
+                self.plan['id'],
+                self.title_edit.text().strip(),
+                self.type_combo.currentText(),
+                self.start_date.get_jalali_date(),
+                self.end_date.get_jalali_date(),
+                self.notes.toPlainText()
+            )
+        else:
+            self.db.create_production_plan(
+                self.title_edit.text().strip(),
+                self.type_combo.currentText(),
+                self.start_date.get_jalali_date(),
+                self.end_date.get_jalali_date(),
+                self.cage_id,
+                1,
+                self.notes.toPlainText()
+            )
+        super().accept()
+
+
+class MaintenancePlanDialog(QtWidgets.QDialog):
+    """دیالوگ ایجاد برنامه نت جدید"""
+
+    def __init__(self, parent=None, plan=None):
+        super().__init__(parent)
+        self.db = DatabaseHandler()
+        self.plan = plan
+        self.setWindowTitle("ایجاد برنامه نت جدید" if not plan else "ویرایش برنامه نت")
+        self.setModal(True)
+        self.resize(500, 550)
+        self.setup_ui()
+        if plan:
+            self.load_plan_data()
+
+    def setup_ui(self):
+        layout = QtWidgets.QFormLayout(self)
+        layout.setLabelAlignment(QtCore.Qt.AlignRight)
+        layout.setSpacing(12)
+        layout.setContentsMargins(20, 20, 20, 20)
+
+        self.title_edit = QtWidgets.QLineEdit()
+        self.title_edit.setPlaceholderText("مثال: برنامه شستشوی دوره‌ای تورها")
+        self.title_edit.setMinimumHeight(30)
+        layout.addRow("عنوان برنامه:", self.title_edit)
+
+        self.type_combo = QtWidgets.QComboBox()
+        self.type_combo.addItems(["weekly", "monthly", "quarterly", "yearly"])
+        layout.addRow("نوع برنامه:", self.type_combo)
+
+        self.asset_type_combo = QtWidgets.QComboBox()
+        self.asset_type_combo.setEditable(True)
+        self.asset_type_combo.addItems(["mooring", "buoy", "anchor", "net", "cage", "collector", "all"])
+        layout.addRow("نوع تجهیز:", self.asset_type_combo)
+
+        self.asset_id_edit = QtWidgets.QLineEdit()
+        self.asset_id_edit.setPlaceholderText("اختیاری - شناسه خاص تجهیز (مثال: MOR-001)")
+        layout.addRow("شناسه تجهیز (اختیاری):", self.asset_id_edit)
+
+        self.start_date = JalaliDateEdit()
+        layout.addRow("تاریخ شروع:", self.start_date)
+
+        self.end_date = JalaliDateEdit()
+        layout.addRow("تاریخ پایان:", self.end_date)
+
+        self.notes = QtWidgets.QTextEdit()
+        self.notes.setMaximumHeight(100)
+        layout.addRow("یادداشت:", self.notes)
+
+        btn_layout = QtWidgets.QHBoxLayout()
+        ok_btn = QtWidgets.QPushButton("ذخیره")
+        ok_btn.setMinimumHeight(35)
+        ok_btn.setStyleSheet("background-color: rgba(60, 60, 65, 180); color: #C8C8C8; border-radius: 4px; padding: 6px 20px;")
+        cancel_btn = QtWidgets.QPushButton("انصراف")
+        cancel_btn.setMinimumHeight(35)
+        cancel_btn.setStyleSheet("background-color: rgba(60, 60, 65, 180); color: #C8C8C8; border-radius: 4px; padding: 6px 20px;")
+        cancel_btn.clicked.connect(self.reject)
+        ok_btn.clicked.connect(self.accept)
+        btn_layout.addWidget(ok_btn)
+        btn_layout.addWidget(cancel_btn)
+        layout.addRow(btn_layout)
+
+    def load_plan_data(self):
+        self.title_edit.setText(self.plan['plan_title'])
+        idx = self.type_combo.findText(self.plan['plan_type'])
+        if idx >= 0:
+            self.type_combo.setCurrentIndex(idx)
+        idx = self.asset_type_combo.findText(self.plan['asset_type'])
+        if idx >= 0:
+            self.asset_type_combo.setCurrentIndex(idx)
+        self.asset_id_edit.setText(self.plan['asset_id'] or "")
+        self.start_date.set_jalali_date(self.plan['start_date'])
+        self.end_date.set_jalali_date(self.plan['end_date'])
+        self.notes.setText(self.plan['notes'] or "")
+
+    def accept(self):
+        if not self.title_edit.text().strip():
+            QtWidgets.QMessageBox.warning(self, "خطا", "لطفاً عنوان برنامه را وارد کنید")
+            return
+        if self.start_date.get_jalali_date() > self.end_date.get_jalali_date():
+            QtWidgets.QMessageBox.warning(self, "خطا", "تاریخ شروع نباید از تاریخ پایان بزرگتر باشد")
+            return
+        
+        asset_id = self.asset_id_edit.text().strip() if self.asset_id_edit.text().strip() else None
+        asset_type = self.asset_type_combo.currentText()
+        
+        if self.plan:
+            self.db.update_maintenance_plan(
+                self.plan['id'],
+                self.title_edit.text().strip(),
+                self.type_combo.currentText(),
+                self.start_date.get_jalali_date(),
+                self.end_date.get_jalali_date(),
+                asset_type,
+                asset_id,
+                self.notes.toPlainText()
+            )
+        else:
+            self.db.create_maintenance_plan(
+                self.title_edit.text().strip(),
+                self.type_combo.currentText(),
+                self.start_date.get_jalali_date(),
+                self.end_date.get_jalali_date(),
+                asset_type,
+                asset_id,
+                self.notes.toPlainText()
+            )
+        super().accept()
+
+
+class TaskDialog(QtWidgets.QDialog):
+    """دیالوگ افزودن/ویرایش وظیفه برای برنامه پرورش"""
+
+    def __init__(self, parent=None, plan_id=None, task_id=None, is_maintenance=False):
+        super().__init__(parent)
+        self.db = DatabaseHandler()
+        self.plan_id = plan_id
+        self.task_id = task_id
+        self.is_maintenance = is_maintenance
+        self.setWindowTitle("افزودن وظیفه جدید" if not task_id else "ویرایش وظیفه")
+        self.setModal(True)
+        self.resize(550, 600)
+        self.setup_ui()
+        if task_id:
+            self.load_task_data()
+
+    def setup_ui(self):
+        layout = QtWidgets.QFormLayout(self)
+        layout.setLabelAlignment(QtCore.Qt.AlignRight)
+        layout.setSpacing(12)
+        layout.setContentsMargins(20, 20, 20, 20)
+
+        # انتخاب از الگوهای تکراری
+        self.template_combo = QtWidgets.QComboBox()
+        self.template_combo.addItem("--- انتخاب از الگوها (اختیاری) ---", None)
+        templates = self.db.get_all_task_templates(only_active=True)
+        for t in templates:
+            self.template_combo.addItem(f"{t['title']} ({t['category']})", t['id'])
+        self.template_combo.currentIndexChanged.connect(self.on_template_selected)
+        layout.addRow("📚 الگوهای تکراری:", self.template_combo)
+
+        # دکمه مدیریت الگوها
+        manage_templates_btn = QtWidgets.QPushButton("✏️ مدیریت الگوها")
+        manage_templates_btn.setStyleSheet("background-color: rgba(60, 60, 65, 180); color: #C8C8C8; border-radius: 4px; padding: 4px 8px;")
+        manage_templates_btn.clicked.connect(self.manage_templates)
+        layout.addRow("", manage_templates_btn)
+
+        line = QtWidgets.QFrame()
+        line.setFrameShape(QtWidgets.QFrame.HLine)
+        line.setStyleSheet("background-color: #3E3E42; margin: 5px 0;")
+        layout.addRow(line)
+
+        self.title_edit = QtWidgets.QLineEdit()
+        self.title_edit.setPlaceholderText("مثال: شستشوی تور قفس")
+        self.title_edit.setMinimumHeight(30)
+        layout.addRow("عنوان وظیفه:", self.title_edit)
+
+        self.desc_edit = QtWidgets.QTextEdit()
+        self.desc_edit.setMaximumHeight(80)
+        layout.addRow("توضیحات:", self.desc_edit)
+
+        self.category_combo = QtWidgets.QComboBox()
+        self.category_combo.addItems(["feeding", "cleaning", "inspection", "repair", "harvest", "water_quality", "other"])
+        layout.addRow("دسته‌بندی:", self.category_combo)
+
+        self.scheduled_date = JalaliDateEdit()
+        layout.addRow("تاریخ انجام:", self.scheduled_date)
+
+        self.start_time = QtWidgets.QTimeEdit()
+        self.start_time.setTime(QtCore.QTime(8, 0))
+        layout.addRow("ساعت شروع:", self.start_time)
+
+        self.duration = QtWidgets.QSpinBox()
+        self.duration.setRange(15, 1440)
+        self.duration.setSuffix(" دقیقه")
+        self.duration.setValue(60)
+        layout.addRow("مدت زمان:", self.duration)
+
+        # مسئول (با قابلیت انتخاب)
+        self.responsible_combo = QtWidgets.QComboBox()
+        self.responsible_combo.setEditable(True)
+        self.responsible_combo.addItems(["واحد بهره برداری", "واحد فنی", "واحد تغذیه", "واحد تعمیرات", "واحد زیست‌توده"])
+        layout.addRow("مسئول:", self.responsible_combo)
+
+        self.priority = QtWidgets.QComboBox()
+        self.priority.addItems(["1 - بالا", "2 - متوسط", "3 - پایین"])
+        layout.addRow("اولویت:", self.priority)
+
+        btn_layout = QtWidgets.QHBoxLayout()
+        ok_btn = QtWidgets.QPushButton("ذخیره")
+        ok_btn.setMinimumHeight(40)
+        ok_btn.setStyleSheet("background-color: rgba(60, 60, 65, 180); color: #C8C8C8; border-radius: 4px; padding: 6px 20px;")
+        cancel_btn = QtWidgets.QPushButton("انصراف")
+        cancel_btn.setMinimumHeight(40)
+        cancel_btn.setStyleSheet("background-color: rgba(60, 60, 65, 180); color: #C8C8C8; border-radius: 4px; padding: 6px 20px;")
+        cancel_btn.clicked.connect(self.reject)
+        ok_btn.clicked.connect(self.accept)
+        btn_layout.addWidget(ok_btn)
+        btn_layout.addWidget(cancel_btn)
+        layout.addRow(btn_layout)
+
+    def manage_templates(self):
+        """مدیریت الگوهای وظایف"""
+        dialog = TemplateManagerDialog(self)
+        dialog.exec_()
+        # به‌روزرسانی لیست الگوها
+        self.template_combo.clear()
+        self.template_combo.addItem("--- انتخاب از الگوها (اختیاری) ---", None)
+        templates = self.db.get_all_task_templates(only_active=True)
+        for t in templates:
+            self.template_combo.addItem(f"{t['title']} ({t['category']})", t['id'])
+
+    def on_template_selected(self, index):
+        template_id = self.template_combo.currentData()
+        if template_id:
+            template = self.db.get_task_template_by_id(template_id)
+            if template:
+                self.title_edit.setText(template['title'])
+                self.desc_edit.setText(template['description'] or "")
+                idx = self.category_combo.findText(template['category'])
+                if idx >= 0:
+                    self.category_combo.setCurrentIndex(idx)
+                self.duration.setValue(template['estimated_duration_minutes'])
+                self.priority.setCurrentIndex(template['default_priority'] - 1)
+
     def load_task_data(self):
-        if self.task:
-            date_parts = self.task['task_date'].split('-')
-            self.date_edit.setDate(QtCore.QDate(int(date_parts[0]), int(date_parts[1]), int(date_parts[2])))
-
-            idx = self.task_type.findText(self.task['task_type'])
+        if self.is_maintenance:
+            tasks = self.db.get_maintenance_tasks(self.plan_id)
+        else:
+            tasks = self.db.get_plan_tasks(self.plan_id)
+        task = None
+        for t in tasks:
+            if t['id'] == self.task_id:
+                task = t
+                break
+        if task:
+            self.title_edit.setText(task['task_title'])
+            self.desc_edit.setText(task['task_description'] or "")
+            idx = self.category_combo.findText(task['category'])
             if idx >= 0:
-                self.task_type.setCurrentIndex(idx)
-
-            idx = self.shift_time.findText(self.task['shift_time'])
+                self.category_combo.setCurrentIndex(idx)
+            self.scheduled_date.set_jalali_date(str(task['scheduled_date']))
+            if task['scheduled_start_time']:
+                self.start_time.setTime(QtCore.QTime.fromString(str(task['scheduled_start_time'])[:5], "hh:mm"))
+            self.duration.setValue(task['estimated_duration_minutes'])
+            responsible = task.get('assigned_to_unit') or task.get('assigned_to_team') or ""
+            idx = self.responsible_combo.findText(responsible)
             if idx >= 0:
-                self.shift_time.setCurrentIndex(idx)
+                self.responsible_combo.setCurrentIndex(idx)
+            else:
+                self.responsible_combo.setEditText(responsible)
+            self.priority.setCurrentIndex(task['priority_level'] - 1)
 
-            assigned_to = self.task.get('assigned_to', '')
-            if assigned_to:
-                index = self.assigned_to.findText(assigned_to)
-                if index >= 0:
-                    self.assigned_to.setCurrentIndex(index)
-            
-            self.notes.setText(self.task.get('notes', ''))
+    def accept(self):
+        if not self.title_edit.text().strip():
+            QtWidgets.QMessageBox.warning(self, "خطا", "لطفاً عنوان وظیفه را وارد کنید")
+            return
+        if not self.responsible_combo.currentText().strip():
+            QtWidgets.QMessageBox.warning(self, "خطا", "لطفاً مسئول را وارد کنید")
+            return
+        priority_map = {"1 - بالا": 1, "2 - متوسط": 2, "3 - پایین": 3}
+        responsible = self.responsible_combo.currentText().strip()
+        
+        if self.task_id:
+            if self.is_maintenance:
+                self.db.execute_query("""
+                    UPDATE maintenance_plan_tasks 
+                    SET task_title = %s, task_description = %s, category = %s,
+                        scheduled_date = %s, scheduled_start_time = %s, estimated_duration_minutes = %s,
+                        assigned_to_team = %s, priority_level = %s
+                    WHERE id = %s
+                """, (self.title_edit.text().strip(), self.desc_edit.toPlainText(), self.category_combo.currentText(),
+                      self.scheduled_date.get_jalali_date(), self.start_time.time().toString("hh:mm:ss"),
+                      self.duration.value(), responsible, priority_map[self.priority.currentText()], self.task_id))
+            else:
+                self.db.update_plan_task(
+                    self.task_id,
+                    self.title_edit.text().strip(),
+                    self.desc_edit.toPlainText(),
+                    self.category_combo.currentText(),
+                    self.scheduled_date.get_jalali_date(),
+                    self.start_time.time().toString("hh:mm:ss"),
+                    self.duration.value(),
+                    None,
+                    responsible,
+                    priority_map[self.priority.currentText()]
+                )
+        else:
+            if self.is_maintenance:
+                self.db.add_maintenance_task(
+                    self.plan_id,
+                    self.template_combo.currentData(),
+                    self.title_edit.text().strip(),
+                    self.desc_edit.toPlainText(),
+                    self.category_combo.currentText(),
+                    self.scheduled_date.get_jalali_date(),
+                    self.start_time.time().toString("hh:mm:ss"),
+                    self.duration.value(),
+                    responsible,
+                    priority_map[self.priority.currentText()]
+                )
+            else:
+                self.db.add_plan_task(
+                    self.plan_id,
+                    self.template_combo.currentData(),
+                    self.title_edit.text().strip(),
+                    self.desc_edit.toPlainText(),
+                    self.category_combo.currentText(),
+                    self.scheduled_date.get_jalali_date(),
+                    self.start_time.time().toString("hh:mm:ss"),
+                    self.duration.value(),
+                    None,
+                    responsible,
+                    priority_map[self.priority.currentText()]
+                )
+        super().accept()
 
-    def get_data(self):
-        return {
-            'date': self.date_edit.date().toString("yyyy-MM-dd"),
-            'task_type': self.task_type.currentText(),
-            'shift_time': self.shift_time.currentText(),
-            'assigned_to': self.assigned_to.currentText(),
-            'assigned_to_id': self.assigned_to.currentData(),
-            'priority': self.priority.currentText(),
-            'notes': self.notes.toPlainText()
-        }
+
+class MaintenanceTaskDialog(QtWidgets.QDialog):
+    """دیالوگ افزودن/ویرایش وظیفه برای برنامه نت"""
+
+    def __init__(self, parent=None, plan_id=None, task_id=None):
+        super().__init__(parent)
+        self.db = DatabaseHandler()
+        self.plan_id = plan_id
+        self.task_id = task_id
+        self.setWindowTitle("افزودن وظیفه جدید" if not task_id else "ویرایش وظیفه")
+        self.setModal(True)
+        self.resize(550, 600)
+        self.setup_ui()
+        if task_id:
+            self.load_task_data()
+
+    def setup_ui(self):
+        layout = QtWidgets.QFormLayout(self)
+        layout.setLabelAlignment(QtCore.Qt.AlignRight)
+        layout.setSpacing(12)
+        layout.setContentsMargins(20, 20, 20, 20)
+
+        self.template_combo = QtWidgets.QComboBox()
+        self.template_combo.addItem("--- انتخاب از الگوها (اختیاری) ---", None)
+        templates = self.db.get_all_task_templates(only_active=True)
+        for t in templates:
+            self.template_combo.addItem(f"{t['title']} ({t['category']})", t['id'])
+        self.template_combo.currentIndexChanged.connect(self.on_template_selected)
+        layout.addRow("📚 الگوهای تکراری:", self.template_combo)
+
+        line = QtWidgets.QFrame()
+        line.setFrameShape(QtWidgets.QFrame.HLine)
+        line.setStyleSheet("background-color: #3E3E42; margin: 5px 0;")
+        layout.addRow(line)
+
+        self.title_edit = QtWidgets.QLineEdit()
+        self.title_edit.setPlaceholderText("مثال: شستشوی تور قفس")
+        self.title_edit.setMinimumHeight(30)
+        layout.addRow("عنوان وظیفه:", self.title_edit)
+
+        self.desc_edit = QtWidgets.QTextEdit()
+        self.desc_edit.setMaximumHeight(80)
+        layout.addRow("توضیحات:", self.desc_edit)
+
+        self.category_combo = QtWidgets.QComboBox()
+        self.category_combo.addItems(["cleaning", "inspection", "repair", "replacement", "other"])
+        layout.addRow("دسته‌بندی:", self.category_combo)
+
+        self.scheduled_date = JalaliDateEdit()
+        layout.addRow("تاریخ انجام:", self.scheduled_date)
+
+        self.start_time = QtWidgets.QTimeEdit()
+        self.start_time.setTime(QtCore.QTime(8, 0))
+        layout.addRow("ساعت شروع:", self.start_time)
+
+        self.duration = QtWidgets.QSpinBox()
+        self.duration.setRange(15, 1440)
+        self.duration.setSuffix(" دقیقه")
+        self.duration.setValue(60)
+        layout.addRow("مدت زمان:", self.duration)
+
+        self.team_combo = QtWidgets.QComboBox()
+        self.team_combo.setEditable(True)
+        self.team_combo.addItems(["تیم بهره برداری", "تیم فنی", "تیم تعمیرات", "تیم بازرسی"])
+        layout.addRow("تیم مسئول:", self.team_combo)
+
+        self.priority = QtWidgets.QComboBox()
+        self.priority.addItems(["1 - بالا", "2 - متوسط", "3 - پایین"])
+        layout.addRow("اولویت:", self.priority)
+
+        btn_layout = QtWidgets.QHBoxLayout()
+        ok_btn = QtWidgets.QPushButton("ذخیره")
+        ok_btn.setMinimumHeight(40)
+        ok_btn.setStyleSheet("background-color: rgba(60, 60, 65, 180); color: #C8C8C8; border-radius: 4px; padding: 6px 20px;")
+        cancel_btn = QtWidgets.QPushButton("انصراف")
+        cancel_btn.setMinimumHeight(40)
+        cancel_btn.setStyleSheet("background-color: rgba(60, 60, 65, 180); color: #C8C8C8; border-radius: 4px; padding: 6px 20px;")
+        cancel_btn.clicked.connect(self.reject)
+        ok_btn.clicked.connect(self.accept)
+        btn_layout.addWidget(ok_btn)
+        btn_layout.addWidget(cancel_btn)
+        layout.addRow(btn_layout)
+
+    def on_template_selected(self, index):
+        template_id = self.template_combo.currentData()
+        if template_id:
+            template = self.db.get_task_template_by_id(template_id)
+            if template:
+                self.title_edit.setText(template['title'])
+                self.desc_edit.setText(template['description'] or "")
+                idx = self.category_combo.findText(template['category'])
+                if idx >= 0:
+                    self.category_combo.setCurrentIndex(idx)
+                self.duration.setValue(template['estimated_duration_minutes'])
+                self.priority.setCurrentIndex(template['default_priority'] - 1)
+
+    def load_task_data(self):
+        tasks = self.db.get_maintenance_tasks(self.plan_id)
+        task = None
+        for t in tasks:
+            if t['id'] == self.task_id:
+                task = t
+                break
+        if task:
+            self.title_edit.setText(task['task_title'])
+            self.desc_edit.setText(task['task_description'] or "")
+            idx = self.category_combo.findText(task['category'])
+            if idx >= 0:
+                self.category_combo.setCurrentIndex(idx)
+            self.scheduled_date.set_jalali_date(str(task['scheduled_date']))
+            if task['scheduled_start_time']:
+                self.start_time.setTime(QtCore.QTime.fromString(str(task['scheduled_start_time'])[:5], "hh:mm"))
+            self.duration.setValue(task['estimated_duration_minutes'])
+            idx = self.team_combo.findText(task['assigned_to_team'] or "")
+            if idx >= 0:
+                self.team_combo.setCurrentIndex(idx)
+            else:
+                self.team_combo.setEditText(task['assigned_to_team'] or "")
+            self.priority.setCurrentIndex(task['priority_level'] - 1)
+
+    def accept(self):
+        if not self.title_edit.text().strip():
+            QtWidgets.QMessageBox.warning(self, "خطا", "لطفاً عنوان وظیفه را وارد کنید")
+            return
+        if not self.team_combo.currentText().strip():
+            QtWidgets.QMessageBox.warning(self, "خطا", "لطفاً تیم مسئول را وارد کنید")
+            return
+        priority_map = {"1 - بالا": 1, "2 - متوسط": 2, "3 - پایین": 3}
+        
+        if self.task_id:
+            self.db.execute_query("""
+                UPDATE maintenance_plan_tasks 
+                SET task_title = %s, task_description = %s, category = %s,
+                    scheduled_date = %s, scheduled_start_time = %s, estimated_duration_minutes = %s,
+                    assigned_to_team = %s, priority_level = %s
+                WHERE id = %s
+            """, (self.title_edit.text().strip(), self.desc_edit.toPlainText(), self.category_combo.currentText(),
+                  self.scheduled_date.get_jalali_date(), self.start_time.time().toString("hh:mm:ss"),
+                  self.duration.value(), self.team_combo.currentText().strip(), 
+                  priority_map[self.priority.currentText()], self.task_id))
+        else:
+            self.db.add_maintenance_task(
+                self.plan_id,
+                self.template_combo.currentData(),
+                self.title_edit.text().strip(),
+                self.desc_edit.toPlainText(),
+                self.category_combo.currentText(),
+                self.scheduled_date.get_jalali_date(),
+                self.start_time.time().toString("hh:mm:ss"),
+                self.duration.value(),
+                self.team_combo.currentText().strip(),
+                priority_map[self.priority.currentText()]
+            )
+        super().accept()
+
+
+class TemplateManagerDialog(QtWidgets.QDialog):
+    """دیالوگ مدیریت الگوهای وظایف"""
+
+    def __init__(self, parent=None):
+        super().__init__(parent)
+        self.db = DatabaseHandler()
+        self.setWindowTitle("مدیریت الگوهای وظایف")
+        self.setModal(True)
+        self.resize(600, 400)
+        self.setup_ui()
+        self.load_templates()
+
+    def setup_ui(self):
+        layout = QtWidgets.QVBoxLayout(self)
+
+        self.templates_table = QtWidgets.QTableWidget()
+        self.templates_table.setColumnCount(6)
+        self.templates_table.setHorizontalHeaderLabels(["شناسه", "عنوان", "دسته‌بندی", "مدت(دقیقه)", "اولویت", "فعال"])
+        self.templates_table.horizontalHeader().setStretchLastSection(True)
+        self.templates_table.setStyleSheet("""
+            QTableWidget {
+                border: 1px solid #3E3E42;
+                border-radius: 4px;
+                background-color: #2D2D30;
+                alternate-background-color: #252526;
+            }
+            QTableWidget::item:selected { background-color: #3A3A3A; }
+            QHeaderView::section {
+                background-color: #252526;
+                color: #C8C8C8;
+                border: none;
+                border-bottom: 1px solid #3E3E42;
+                padding: 6px;
+            }
+        """)
+        layout.addWidget(self.templates_table)
+
+        btn_layout = QtWidgets.QHBoxLayout()
+        add_btn = QtWidgets.QPushButton("➕ افزودن")
+        add_btn.setStyleSheet("background-color: rgba(60, 60, 65, 180); color: #C8C8C8; border-radius: 4px; padding: 6px 12px;")
+        add_btn.clicked.connect(self.add_template)
+        
+        close_btn = QtWidgets.QPushButton("بستن")
+        close_btn.setStyleSheet("background-color: rgba(60, 60, 65, 180); color: #C8C8C8; border-radius: 4px; padding: 6px 12px;")
+        close_btn.clicked.connect(self.accept)
+        
+        btn_layout.addWidget(add_btn)
+        btn_layout.addStretch()
+        btn_layout.addWidget(close_btn)
+        layout.addLayout(btn_layout)
+
+    def load_templates(self):
+        templates = self.db.get_all_task_templates(only_active=False)
+        self.templates_table.setRowCount(len(templates))
+        for i, t in enumerate(templates):
+            self.templates_table.setItem(i, 0, QtWidgets.QTableWidgetItem(str(t['id'])))
+            self.templates_table.setItem(i, 1, QtWidgets.QTableWidgetItem(t['title']))
+            self.templates_table.setItem(i, 2, QtWidgets.QTableWidgetItem(t['category']))
+            self.templates_table.setItem(i, 3, QtWidgets.QTableWidgetItem(str(t['estimated_duration_minutes'])))
+            self.templates_table.setItem(i, 4, QtWidgets.QTableWidgetItem(str(t['default_priority'])))
+            self.templates_table.setItem(i, 5, QtWidgets.QTableWidgetItem("✅" if t['is_active'] else "❌"))
+
+    def add_template(self):
+        title, ok = QtWidgets.QInputDialog.getText(self, "الگوی جدید", "عنوان وظیفه:")
+        if ok and title.strip():
+            self.db.add_task_template(title.strip(), "", "other", 60, 2, 1)
+            self.load_templates()
+            QtWidgets.QMessageBox.information(self, "موفق", "الگو با موفقیت اضافه شد")

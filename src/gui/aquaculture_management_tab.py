@@ -1,6 +1,6 @@
 """
-صفحه مدیریت آبزی پروری - شامل هچری، نرسری و پرورش در دریا
-نسخه دیتابیس - با ذخیره و بارگذاری صحیح دادهها
+صفحه مدیریت آبزی پروری - نسخه نهایی با دیتابیس
+شامل: هچری، نرسری و پرورش در دریا
 """
 
 from functools import partial
@@ -175,9 +175,10 @@ class AquacultureManagementTab(QtWidgets.QWidget):
         if not self.current_cycle:
             QtWidgets.QMessageBox.warning(self, "خطا", "هیچ دوره فعالی برای ویرایش وجود ندارد")
             return
-        
+
+        # بررسی وابستگی‌ها
         can_edit, dependent_table = self.db.check_cycle_dependencies(self.current_cycle.id)
-        
+
         if not can_edit:
             QtWidgets.QMessageBox.warning(
                 self, 
@@ -187,7 +188,7 @@ class AquacultureManagementTab(QtWidgets.QWidget):
                 f"لطفاً ابتدا داده‌های {dependent_table} را حذف کنید، سپس دوره را ویرایش نمایید."
             )
             return
-        
+
         dialog = CycleDialog(self, mode="edit", current_cycle=self.current_cycle)
         if dialog.exec_():
             result = dialog.result_data
@@ -204,9 +205,11 @@ class AquacultureManagementTab(QtWidgets.QWidget):
                 self.load_current_data()
                 self.update_cycle_display()
                 self.update_production_management_data()
-                QtWidgets.QMessageBox.information(self, "موفق", "دوره پرورش ویرایش شد")
+                QtWidgets.QMessageBox.information(self, "موفق", "دوره پرورش با موفقیت ویرایش شد")
             else:
                 QtWidgets.QMessageBox.warning(self, "خطا", "خطا در ویرایش دوره پرورش")
+
+    # ==================== برداشت ====================
 
     def add_harvest(self):
         if not self.current_farm or not self.current_mooring:
@@ -238,11 +241,7 @@ class AquacultureManagementTab(QtWidgets.QWidget):
                 self.update_harvest_table()
                 self.update_cycle_display()
                 self.update_production_management_data()
-
-                QtWidgets.QMessageBox.information(self, "موفق", 
-                    f"برداشت با موفقیت ثبت شد\n"
-                    f"تعداد: {result.get('harvest_count'):,} عدد\n"
-                    f"کل مبلغ: {result.get('total_amount'):,.0f} تومان")
+                QtWidgets.QMessageBox.information(self, "موفق", "برداشت با موفقیت ثبت شد")
             else:
                 QtWidgets.QMessageBox.warning(self, "خطا", "خطا در ثبت برداشت")
 
@@ -251,13 +250,13 @@ class AquacultureManagementTab(QtWidgets.QWidget):
             return
         current_cage = self.cage_combo.currentData() if self.cage_combo.count() > 0 else None
         if current_cage:
-            filtered = [h for h in self.harvest_records if h.cage_id == current_cage]
+            filtered = [h for h in self.harvest_records if str(h.cage_id) == str(current_cage)]
         else:
             filtered = self.harvest_records
         if index >= len(filtered):
             return
         harvest = filtered[index]
-        
+
         dialog = HarvestDialog(self, current_farm=self.current_farm, current_mooring=self.current_mooring, 
                               cycle=self.current_cycle, harvest={
                                   'harvest_date': harvest.harvest_date,
@@ -299,7 +298,7 @@ class AquacultureManagementTab(QtWidgets.QWidget):
         if QtWidgets.QMessageBox.question(self, "تأیید", "آیا از حذف این برداشت مطمئن هستید؟") == QtWidgets.QMessageBox.Yes:
             current_cage = self.cage_combo.currentData() if self.cage_combo.count() > 0 else None
             if current_cage:
-                filtered = [h for h in self.harvest_records if h.cage_id == current_cage]
+                filtered = [h for h in self.harvest_records if str(h.cage_id) == str(current_cage)]
                 if index < len(filtered):
                     to_delete = filtered[index]
                     if hasattr(to_delete, 'id') and to_delete.id:
@@ -308,7 +307,7 @@ class AquacultureManagementTab(QtWidgets.QWidget):
                         if h.id == to_delete.id and h.harvest_date == to_delete.harvest_date:
                             self.harvest_records.pop(i)
                             break
-            
+
             self.update_harvest_table()
             self.update_cycle_display()
             self.update_production_management_data()
@@ -357,7 +356,7 @@ class AquacultureManagementTab(QtWidgets.QWidget):
             return
         current_cage = self.cage_combo.currentData() if self.cage_combo.count() > 0 else None
         if current_cage:
-            filtered = [b for b in self.biomasses if b.cage_id == current_cage]
+            filtered = [b for b in self.biomasses if str(b.cage_id) == str(current_cage)]
         else:
             filtered = self.biomasses
         if index >= len(filtered):
@@ -392,57 +391,66 @@ class AquacultureManagementTab(QtWidgets.QWidget):
                 QtWidgets.QMessageBox.warning(self, "خطا", "خطا در ویرایش زیست توده")
 
     def delete_biomass(self, index):
-        if QtWidgets.QMessageBox.question(self, "تأیید", "آیا از حذف این زیست توده مطمئن هستید؟") == QtWidgets.QMessageBox.Yes:
-            current_cage = self.cage_combo.currentData() if self.cage_combo.count() > 0 else None
-            if current_cage:
-                filtered = [b for b in self.biomasses if b.cage_id == current_cage]
-                if index < len(filtered):
-                    to_delete = filtered[index]
-                    if hasattr(to_delete, 'id') and to_delete.id:
-                        self.db.delete_biomass(to_delete.id)
-                    for i, b in enumerate(self.biomasses):
-                        if b.id == to_delete.id and b.date == to_delete.date:
-                            self.biomasses.pop(i)
-                            break
+        if not self.current_cycle:
+            QtWidgets.QMessageBox.warning(self, "خطا", "هیچ دوره فعالی وجود ندارد")
+            return
+        
+        current_cage = self.cage_combo.currentData() if self.cage_combo.count() > 0 else None
+        if current_cage:
+            filtered = [b for b in self.biomasses if str(b.cage_id) == str(current_cage)]
+        else:
+            filtered = self.biomasses
+        
+        if index >= len(filtered):
+            return
+        
+        to_delete = filtered[index]
+        
+        reply = QtWidgets.QMessageBox.question(
+            self, "تأیید حذف",
+            f"آیا از حذف زیست توده تاریخ {to_delete.date} مطمئن هستید؟",
+            QtWidgets.QMessageBox.Yes | QtWidgets.QMessageBox.No
+        )
+        
+        if reply == QtWidgets.QMessageBox.Yes:
+            if hasattr(to_delete, 'id') and to_delete.id:
+                self.db.delete_biomass(to_delete.id)
+            
+            for i, b in enumerate(self.biomasses):
+                if hasattr(b, 'id') and b.id == to_delete.id:
+                    self.biomasses.pop(i)
+                    break
             
             self.update_biomass_table()
             self.update_production_management_data()
             if hasattr(self, 'growth_dashboard'):
                 self.growth_dashboard.load_data()
                 self.growth_dashboard.update_all_charts()
+            
+            QtWidgets.QMessageBox.information(self, "موفق", "زیست توده با موفقیت حذف شد")
 
     def clear_all_biomasses(self):
-        if QtWidgets.QMessageBox.question(self, "تأیید", "آیا از حذف همه زیست توده‌ها مطمئن هستید؟") == QtWidgets.QMessageBox.Yes:
-            current_cage = self.cage_combo.currentData() if self.cage_combo.count() > 0 else None
-            if current_cage:
-                for b in self.biomasses:
-                    if b.cage_id == current_cage and hasattr(b, 'id') and b.id:
-                        self.db.delete_biomass(b.id)
-                self.biomasses = [b for b in self.biomasses if b.cage_id != current_cage]
-            
-            self.update_biomass_table()
-            self.update_production_management_data()
-            if hasattr(self, 'growth_dashboard'):
-                self.growth_dashboard.load_data()
-                self.growth_dashboard.update_all_charts()
+        if QtWidgets.QMessageBox.question(self, "تأیید", "آیا از حذف همه زیست تودهها مطمئن هستید؟") == QtWidgets.QMessageBox.Yes:
+            self.db.execute_query("DELETE FROM biomasses WHERE cycle_id = %s", (self.current_cycle.id,))
+            self.load_current_data()
 
     def update_biomass_table(self):
         current_cage = self.cage_combo.currentData() if self.cage_combo.count() > 0 else None
-        
+
         if current_cage:
-            filtered_biomasses = [b for b in self.biomasses if b.cage_id == current_cage]
+            filtered_biomasses = [b for b in self.biomasses if str(b.cage_id) == str(current_cage)]
         else:
             filtered_biomasses = self.biomasses
 
         self.biomass_table.setRowCount(len(filtered_biomasses))
         self.biomass_table.setColumnCount(7)
-        self.biomass_table.setHorizontalHeaderLabels(["تاریخ", "قفس", "وزن (گرم)", "تعداد تخمینی", "تعداد نمونه", "یادداشت", ""])
+        self.biomass_table.setHorizontalHeaderLabels(["تاریخ", "قفس", "وزن (گرم)", "تعداد تخمینی", "تعداد نمونه", "یادداشت", "عملیات"])
         self.biomass_table.setColumnWidth(0, 100)
         self.biomass_table.setColumnWidth(1, 80)
         self.biomass_table.setColumnWidth(2, 100)
         self.biomass_table.setColumnWidth(3, 120)
         self.biomass_table.setColumnWidth(4, 100)
-        self.biomass_table.setColumnWidth(6, 70)
+        self.biomass_table.setColumnWidth(6, 80)
         self.biomass_table.horizontalHeader().setStretchLastSection(False)
         self.biomass_table.horizontalHeader().setSectionResizeMode(5, QtWidgets.QHeaderView.Stretch)
 
@@ -458,16 +466,19 @@ class AquacultureManagementTab(QtWidgets.QWidget):
             btn_layout = QtWidgets.QHBoxLayout(btn_widget)
             btn_layout.setContentsMargins(0, 0, 0, 0)
             btn_layout.setSpacing(2)
+            
             edit_btn = QtWidgets.QToolButton()
             edit_btn.setIcon(qta.icon('fa5s.edit', color='#569CD6'))
             edit_btn.setIconSize(QtCore.QSize(16, 16))
             edit_btn.setFixedSize(24, 24)
             edit_btn.clicked.connect(partial(self.edit_biomass, i))
+            
             delete_btn = QtWidgets.QToolButton()
             delete_btn.setIcon(qta.icon('fa5s.trash-alt', color='#F48771'))
             delete_btn.setIconSize(QtCore.QSize(16, 16))
             delete_btn.setFixedSize(24, 24)
             delete_btn.clicked.connect(partial(self.delete_biomass, i))
+            
             btn_layout.addWidget(edit_btn)
             btn_layout.addWidget(delete_btn)
             btn_layout.addStretch()
@@ -505,24 +516,21 @@ class AquacultureManagementTab(QtWidgets.QWidget):
                 QtWidgets.QMessageBox.warning(self, "خطا", "خطا در ثبت تغذیه")
 
     def edit_feed(self, index):
-        """ویرایش تغذیه"""
         if not self.current_cycle:
             return
         current_cage = self.cage_combo.currentData() if self.cage_combo.count() > 0 else None
         if current_cage:
-            filtered = [f for f in self.feeds if f.cage_id == current_cage]
+            filtered = [f for f in self.feeds if str(f.cage_id) == str(current_cage)]
         else:
             filtered = self.feeds
         if index >= len(filtered):
             return
         feed = filtered[index]
-        
+
         dialog = FeedDialog(self, current_farm=self.current_farm, current_mooring=self.current_mooring, feed=feed)
         if dialog.exec_():
-            # حذف رکورد قدیمی
             if hasattr(feed, 'id') and feed.id:
                 self.db.execute_query("DELETE FROM feeds WHERE id = %s", (feed.id,))
-            # ذخیره رکورد جدید
             result = self.db.save_feed(
                 self.current_cycle.cage_id,
                 self.current_cycle.id,
@@ -545,35 +553,30 @@ class AquacultureManagementTab(QtWidgets.QWidget):
 
     def delete_feed(self, index):
         if QtWidgets.QMessageBox.question(self, "تأیید", "حذف شود؟") == QtWidgets.QMessageBox.Yes:
-            self.feeds.pop(index)
-            self.update_feed_table()
-            self.update_production_management_data()
-            if hasattr(self, 'growth_dashboard'):
-                self.growth_dashboard.load_data()
-                self.growth_dashboard.update_all_charts()
+            if index < len(self.feeds):
+                to_delete = self.feeds[index]
+                if hasattr(to_delete, 'id') and to_delete.id:
+                    self.db.execute_query("DELETE FROM feeds WHERE id = %s", (to_delete.id,))
+                self.load_current_data()
 
     def clear_all_feeds(self):
         if QtWidgets.QMessageBox.question(self, "تأیید", "همه تغذیهها حذف شوند؟") == QtWidgets.QMessageBox.Yes:
-            self.feeds.clear()
-            self.update_feed_table()
-            self.update_production_management_data()
-            if hasattr(self, 'growth_dashboard'):
-                self.growth_dashboard.load_data()
-                self.growth_dashboard.update_all_charts()
+            self.db.execute_query("DELETE FROM feeds WHERE cycle_id = %s", (self.current_cycle.id,))
+            self.load_current_data()
 
     def update_feed_table(self):
         current_cage = self.cage_combo.currentData() if self.cage_combo.count() > 0 else None
-        filtered_feeds = [f for f in self.feeds if f.cage_id == current_cage] if current_cage else self.feeds
+        filtered_feeds = [f for f in self.feeds if str(f.cage_id) == str(current_cage)] if current_cage else self.feeds
 
         self.feed_table.setRowCount(len(filtered_feeds))
         self.feed_table.setColumnCount(7)
-        self.feed_table.setHorizontalHeaderLabels(["تاریخ", "قفس", "نوع غذا", "مقدار", "زمان", "یادداشت", ""])
+        self.feed_table.setHorizontalHeaderLabels(["تاریخ", "قفس", "نوع غذا", "مقدار", "زمان", "یادداشت", "عملیات"])
         self.feed_table.setColumnWidth(0, 100)
         self.feed_table.setColumnWidth(1, 100)
         self.feed_table.setColumnWidth(2, 130)
         self.feed_table.setColumnWidth(3, 70)
         self.feed_table.setColumnWidth(4, 100)
-        self.feed_table.setColumnWidth(6, 60)
+        self.feed_table.setColumnWidth(6, 80)
         self.feed_table.horizontalHeader().setStretchLastSection(False)
         self.feed_table.horizontalHeader().setSectionResizeMode(5, QtWidgets.QHeaderView.Stretch)
 
@@ -635,24 +638,21 @@ class AquacultureManagementTab(QtWidgets.QWidget):
                 QtWidgets.QMessageBox.warning(self, "خطا", "خطا در ثبت تلفات")
 
     def edit_mortality(self, index):
-        """ویرایش تلفات"""
         if not self.current_cycle:
             return
         current_cage = self.cage_combo.currentData() if self.cage_combo.count() > 0 else None
         if current_cage:
-            filtered = [m for m in self.mortalities if m.cage_id == current_cage]
+            filtered = [m for m in self.mortalities if str(m.cage_id) == str(current_cage)]
         else:
             filtered = self.mortalities
         if index >= len(filtered):
             return
         mortality = filtered[index]
-        
+
         dialog = MortalityDialog(self, current_farm=self.current_farm, current_mooring=self.current_mooring, mortality=mortality)
         if dialog.exec_():
-            # حذف رکورد قدیمی
             if hasattr(mortality, 'id') and mortality.id:
                 self.db.execute_query("DELETE FROM mortalities WHERE id = %s", (mortality.id,))
-            # ذخیره رکورد جدید
             result = self.db.save_mortality(
                 self.current_cycle.cage_id,
                 self.current_cycle.id,
@@ -674,34 +674,29 @@ class AquacultureManagementTab(QtWidgets.QWidget):
 
     def delete_mortality(self, index):
         if QtWidgets.QMessageBox.question(self, "تأیید", "حذف شود؟") == QtWidgets.QMessageBox.Yes:
-            self.mortalities.pop(index)
-            self.update_mortality_table()
-            self.update_production_management_data()
-            if hasattr(self, 'growth_dashboard'):
-                self.growth_dashboard.load_data()
-                self.growth_dashboard.update_all_charts()
+            if index < len(self.mortalities):
+                to_delete = self.mortalities[index]
+                if hasattr(to_delete, 'id') and to_delete.id:
+                    self.db.execute_query("DELETE FROM mortalities WHERE id = %s", (to_delete.id,))
+                self.load_current_data()
 
     def clear_all_mortalities(self):
         if QtWidgets.QMessageBox.question(self, "تأیید", "همه تلفات حذف شوند؟") == QtWidgets.QMessageBox.Yes:
-            self.mortalities.clear()
-            self.update_mortality_table()
-            self.update_production_management_data()
-            if hasattr(self, 'growth_dashboard'):
-                self.growth_dashboard.load_data()
-                self.growth_dashboard.update_all_charts()
+            self.db.execute_query("DELETE FROM mortalities WHERE cycle_id = %s", (self.current_cycle.id,))
+            self.load_current_data()
 
     def update_mortality_table(self):
         current_cage = self.cage_combo.currentData() if self.cage_combo.count() > 0 else None
-        filtered_mortalities = [m for m in self.mortalities if m.cage_id == current_cage] if current_cage else self.mortalities
+        filtered_mortalities = [m for m in self.mortalities if str(m.cage_id) == str(current_cage)] if current_cage else self.mortalities
 
         self.mortality_table.setRowCount(len(filtered_mortalities))
         self.mortality_table.setColumnCount(6)
-        self.mortality_table.setHorizontalHeaderLabels(["تاریخ", "قفس", "تعداد", "علت", "یادداشت", ""])
+        self.mortality_table.setHorizontalHeaderLabels(["تاریخ", "قفس", "تعداد", "علت", "یادداشت", "عملیات"])
         self.mortality_table.setColumnWidth(0, 100)
         self.mortality_table.setColumnWidth(1, 100)
         self.mortality_table.setColumnWidth(2, 70)
         self.mortality_table.setColumnWidth(3, 130)
-        self.mortality_table.setColumnWidth(5, 60)
+        self.mortality_table.setColumnWidth(5, 80)
         self.mortality_table.horizontalHeader().setStretchLastSection(False)
         self.mortality_table.horizontalHeader().setSectionResizeMode(4, QtWidgets.QHeaderView.Stretch)
 
@@ -765,24 +760,21 @@ class AquacultureManagementTab(QtWidgets.QWidget):
                 QtWidgets.QMessageBox.warning(self, "خطا", "خطا در ثبت پارامترهای آب")
 
     def edit_water_parameter(self, index):
-        """ویرایش پارامتر آب"""
         if not self.current_cycle:
             return
         current_cage = self.cage_combo.currentData() if self.cage_combo.count() > 0 else None
         if current_cage:
-            filtered = [w for w in self.water_parameters if w.cage_id == current_cage]
+            filtered = [w for w in self.water_parameters if str(w.cage_id) == str(current_cage)]
         else:
             filtered = self.water_parameters
         if index >= len(filtered):
             return
         param = filtered[index]
-        
+
         dialog = WaterParameterDialog(self, current_farm=self.current_farm, current_mooring=self.current_mooring, parameter=param)
         if dialog.exec_():
-            # حذف رکورد قدیمی
             if hasattr(param, 'id') and param.id:
                 self.db.execute_query("DELETE FROM water_parameters WHERE id = %s", (param.id,))
-            # ذخیره رکورد جدید
             result = self.db.save_water_parameter(
                 self.current_cycle.cage_id,
                 self.current_cycle.id,
@@ -809,7 +801,7 @@ class AquacultureManagementTab(QtWidgets.QWidget):
         if QtWidgets.QMessageBox.question(self, "تأیید", "آیا از حذف این پارامتر آب مطمئن هستید؟") == QtWidgets.QMessageBox.Yes:
             current_cage = self.cage_combo.currentData() if self.cage_combo.count() > 0 else None
             if current_cage:
-                filtered = [w for w in self.water_parameters if w.cage_id == current_cage]
+                filtered = [w for w in self.water_parameters if str(w.cage_id) == str(current_cage)]
                 if index < len(filtered):
                     to_delete = filtered[index]
                     if hasattr(to_delete, 'id') and to_delete.id:
@@ -819,7 +811,7 @@ class AquacultureManagementTab(QtWidgets.QWidget):
                         if w.id == to_delete.id and w.date == to_delete.date:
                             self.water_parameters.pop(i)
                             break
-            
+
             self.update_water_table()
             self.update_production_management_data()
             if hasattr(self, 'growth_dashboard'):
@@ -828,31 +820,20 @@ class AquacultureManagementTab(QtWidgets.QWidget):
 
     def clear_all_water_parameters(self):
         if QtWidgets.QMessageBox.question(self, "تأیید", "آیا از حذف همه پارامترهای آب مطمئن هستید؟") == QtWidgets.QMessageBox.Yes:
-            current_cage = self.cage_combo.currentData() if self.cage_combo.count() > 0 else None
-            if current_cage:
-                for w in self.water_parameters:
-                    if w.cage_id == current_cage and hasattr(w, 'id') and w.id:
-                        if hasattr(self.db, 'delete_water_parameter'):
-                            self.db.delete_water_parameter(w.id)
-                self.water_parameters = [w for w in self.water_parameters if w.cage_id != current_cage]
-            
-            self.update_water_table()
-            self.update_production_management_data()
-            if hasattr(self, 'growth_dashboard'):
-                self.growth_dashboard.load_data()
-                self.growth_dashboard.update_all_charts()
+            self.db.execute_query("DELETE FROM water_parameters WHERE cycle_id = %s", (self.current_cycle.id,))
+            self.load_current_data()
 
     def update_water_table(self):
         current_cage = self.cage_combo.currentData() if self.cage_combo.count() > 0 else None
-        
+
         if current_cage:
-            filtered_water = [w for w in self.water_parameters if w.cage_id == current_cage]
+            filtered_water = [w for w in self.water_parameters if str(w.cage_id) == str(current_cage)]
         else:
             filtered_water = self.water_parameters
 
         self.water_table.setRowCount(len(filtered_water))
         self.water_table.setColumnCount(9)
-        self.water_table.setHorizontalHeaderLabels(["تاریخ", "قفس", "زمان", "دما", "اکسیژن", "شوری", "pH", "یادداشت", ""])
+        self.water_table.setHorizontalHeaderLabels(["تاریخ", "قفس", "زمان", "دما", "اکسیژن", "شوری", "pH", "یادداشت", "عملیات"])
         self.water_table.setColumnWidth(0, 100)
         self.water_table.setColumnWidth(1, 80)
         self.water_table.setColumnWidth(2, 90)
@@ -860,7 +841,7 @@ class AquacultureManagementTab(QtWidgets.QWidget):
         self.water_table.setColumnWidth(4, 70)
         self.water_table.setColumnWidth(5, 60)
         self.water_table.setColumnWidth(6, 50)
-        self.water_table.setColumnWidth(8, 60)
+        self.water_table.setColumnWidth(8, 80)
         self.water_table.horizontalHeader().setStretchLastSection(False)
         self.water_table.horizontalHeader().setSectionResizeMode(7, QtWidgets.QHeaderView.Stretch)
 
@@ -895,11 +876,11 @@ class AquacultureManagementTab(QtWidgets.QWidget):
 
     def update_harvest_table(self):
         current_cage = self.cage_combo.currentData() if self.cage_combo.count() > 0 else None
-        filtered_harvests = [h for h in self.harvest_records if h.cage_id == current_cage] if current_cage else self.harvest_records
+        filtered_harvests = [h for h in self.harvest_records if str(h.cage_id) == str(current_cage)] if current_cage else self.harvest_records
 
         self.harvest_table.setRowCount(len(filtered_harvests))
         self.harvest_table.setColumnCount(9)
-        self.harvest_table.setHorizontalHeaderLabels(["تاریخ", "تعداد", "وزن متوسط", "کل وزن(kg)", "مشتری", "قیمت(kg)", "کل مبلغ", "یادداشت", ""])
+        self.harvest_table.setHorizontalHeaderLabels(["تاریخ", "تعداد", "وزن متوسط", "کل وزن(kg)", "مشتری", "قیمت(kg)", "کل مبلغ", "یادداشت", "عملیات"])
         self.harvest_table.setColumnWidth(0, 100)
         self.harvest_table.setColumnWidth(1, 80)
         self.harvest_table.setColumnWidth(2, 100)
@@ -908,7 +889,7 @@ class AquacultureManagementTab(QtWidgets.QWidget):
         self.harvest_table.setColumnWidth(5, 100)
         self.harvest_table.setColumnWidth(6, 120)
         self.harvest_table.setColumnWidth(7, 150)
-        self.harvest_table.setColumnWidth(8, 70)
+        self.harvest_table.setColumnWidth(8, 80)
 
         for i, h in enumerate(filtered_harvests):
             self.harvest_table.setItem(i, 0, QtWidgets.QTableWidgetItem(h.harvest_date))
@@ -1235,7 +1216,7 @@ class AquacultureManagementTab(QtWidgets.QWidget):
         biomass_layout = QtWidgets.QVBoxLayout(biomass_tab)
         biomass_toolbar = QtWidgets.QHBoxLayout()
         biomass_toolbar.addStretch()
-        self.clear_biomass_btn = QtWidgets.QPushButton("🗑️ حذف همه زیست توده‌ها")
+        self.clear_biomass_btn = QtWidgets.QPushButton("🗑️ حذف همه زیست تودهها")
         self.clear_biomass_btn.setStyleSheet(delete_all_style)
         self.clear_biomass_btn.clicked.connect(self.clear_all_biomasses)
         biomass_toolbar.addWidget(self.clear_biomass_btn)
@@ -1248,7 +1229,7 @@ class AquacultureManagementTab(QtWidgets.QWidget):
         feed_layout = QtWidgets.QVBoxLayout(feed_tab)
         feed_toolbar = QtWidgets.QHBoxLayout()
         feed_toolbar.addStretch()
-        self.clear_feed_btn = QtWidgets.QPushButton("🗑️ حذف همه تغذیه‌ها")
+        self.clear_feed_btn = QtWidgets.QPushButton("🗑️ حذف همه تغذیهها")
         self.clear_feed_btn.setStyleSheet(delete_all_style)
         self.clear_feed_btn.clicked.connect(self.clear_all_feeds)
         feed_toolbar.addWidget(self.clear_feed_btn)
@@ -1261,7 +1242,7 @@ class AquacultureManagementTab(QtWidgets.QWidget):
         mortality_layout = QtWidgets.QVBoxLayout(mortality_tab)
         mortality_toolbar = QtWidgets.QHBoxLayout()
         mortality_toolbar.addStretch()
-        self.clear_mortality_btn = QtWidgets.QPushButton("🗑️ حذف همه تلفات‌ها")
+        self.clear_mortality_btn = QtWidgets.QPushButton("🗑️ حذف همه تلفاتها")
         self.clear_mortality_btn.setStyleSheet(delete_all_style)
         self.clear_mortality_btn.clicked.connect(self.clear_all_mortalities)
         mortality_toolbar.addWidget(self.clear_mortality_btn)
@@ -1291,7 +1272,7 @@ class AquacultureManagementTab(QtWidgets.QWidget):
         self.inner_tabs.addTab(harvest_tab, "💰 برداشتها")
 
         self.production_management_tab = ProductionManagementTab()
-        self.inner_tabs.addTab(self.production_management_tab, "📊 شاخص‌های پرورش")
+        self.inner_tabs.addTab(self.production_management_tab, "📊 شاخصهای پرورش")
 
         dashboard_tab = QtWidgets.QWidget()
         dashboard_layout = QtWidgets.QVBoxLayout(dashboard_tab)
