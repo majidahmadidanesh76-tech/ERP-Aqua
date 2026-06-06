@@ -1,5 +1,6 @@
 """
-واسط بین برنامه و دیتابیس - نسخه نهایی با پشتیبانی از برنامه‌ریزی تولید، نت و پیشنهادات هوشمند
+واسط بین برنامه و دیتابیس - نسخه نهایی
+شامل: مدیریت مزرعه، آبزی‌پروری، برنامه‌ریزی تولید، نت، پیشنهادات هوشمند، جیره‌بندی
 """
 
 from .db_manager import DatabaseManager
@@ -413,115 +414,49 @@ class DatabaseHandler:
     # ==================== وظایف روزانه (برای سازگاری) ====================
 
     def get_daily_tasks_by_date(self, task_date):
-        """دریافت وظایف روزانه برای تاریخ مشخص - برای سازگاری"""
         return self.fetch_all("SELECT * FROM daily_tasks WHERE task_date = %s", (task_date,))
 
     def save_daily_task(self, plan_id, task_date, task_type, assigned_to, shift_time, notes=""):
-        """ذخیره وظیفه روزانه - برای سازگاری"""
         return self.execute_query("""
             INSERT INTO daily_tasks (task_date, task_type, assigned_to, shift_time, status, notes)
             VALUES (%s, %s, %s, %s, 'pending', %s)
         """, (task_date, task_type, assigned_to, shift_time, notes))
 
     def update_task_status(self, task_id, status):
-        """به‌روزرسانی وضعیت وظیفه"""
         return self.execute_query("UPDATE daily_tasks SET status = %s WHERE id = %s", (status, task_id))
 
     def delete_task(self, task_id):
-        """حذف وظیفه"""
         return self.execute_query("DELETE FROM daily_tasks WHERE id = %s", (task_id,))
 
-    # ==================== برنامه‌ریزی تولید (Production Plans) ====================
+    # ==================== برنامه‌ریزی تولید ====================
 
-    # ---------- task_templates ----------
-    def get_all_task_templates(self, only_active=True):
-        """دریافت لیست تمام الگوهای وظایف"""
-        query = "SELECT * FROM task_templates"
-        if only_active:
-            query += " WHERE is_active = 1"
-        query += " ORDER BY category, title"
-        return self.fetch_all(query)
-
-    def get_task_template_by_id(self, template_id):
-        """دریافت یک الگو با شناسه"""
-        return self.fetch_one("SELECT * FROM task_templates WHERE id = %s", (template_id,))
-
-    def add_task_template(self, title, description, category, estimated_duration_minutes, default_priority, is_active=1):
-        """افزودن الگوی وظیفه جدید"""
-        return self.execute_query("""
-            INSERT INTO task_templates (title, description, category, estimated_duration_minutes, default_priority, is_active)
-            VALUES (%s, %s, %s, %s, %s, %s)
-        """, (title, description, category, estimated_duration_minutes, default_priority, is_active))
-
-    def update_task_template(self, template_id, title, description, category, estimated_duration_minutes, default_priority, is_active):
-        """ویرایش الگوی وظیفه"""
-        return self.execute_query("""
-            UPDATE task_templates 
-            SET title = %s, description = %s, category = %s, 
-                estimated_duration_minutes = %s, default_priority = %s, is_active = %s
-            WHERE id = %s
-        """, (title, description, category, estimated_duration_minutes, default_priority, is_active, template_id))
-
-    def delete_task_template(self, template_id):
-        """حذف الگوی وظیفه"""
-        return self.execute_query("DELETE FROM task_templates WHERE id = %s", (template_id,))
-
-    # ---------- production_plans (برنامه پرورش) ----------
     def get_all_production_plans(self, cage_id=None):
-        """دریافت لیست برنامه‌های پرورش"""
         if cage_id:
-            return self.fetch_all("""
-                SELECT * FROM production_plans 
-                WHERE cage_id = %s 
-                ORDER BY start_date DESC
-            """, (cage_id,))
+            return self.fetch_all("SELECT * FROM production_plans WHERE cage_id = %s ORDER BY start_date DESC", (cage_id,))
         return self.fetch_all("SELECT * FROM production_plans ORDER BY start_date DESC")
 
     def get_production_plan_by_id(self, plan_id):
-        """دریافت یک برنامه با شناسه"""
         return self.fetch_one("SELECT * FROM production_plans WHERE id = %s", (plan_id,))
 
     def create_production_plan(self, plan_title, plan_type, start_date, end_date, cage_id, planned_by, notes=""):
-        """ایجاد برنامه پرورش جدید"""
         return self.execute_query("""
             INSERT INTO production_plans 
             (plan_title, plan_type, start_date, end_date, cage_id, plan_status, planned_by, notes)
             VALUES (%s, %s, %s, %s, %s, 'draft', %s, %s)
         """, (plan_title, plan_type, start_date, end_date, cage_id, planned_by, notes))
 
-    def update_production_plan(self, plan_id, plan_title, plan_type, start_date, end_date, notes):
-        """ویرایش برنامه پرورش"""
-        return self.execute_query("""
-            UPDATE production_plans 
-            SET plan_title = %s, plan_type = %s, start_date = %s, end_date = %s, notes = %s
-            WHERE id = %s
-        """, (plan_title, plan_type, start_date, end_date, notes, plan_id))
-
     def update_plan_status(self, plan_id, status):
-        """به‌روزرسانی وضعیت برنامه"""
-        return self.execute_query("""
-            UPDATE production_plans 
-            SET plan_status = %s, submitted_at = IF(%s = 'submitted', NOW(), submitted_at)
-            WHERE id = %s
-        """, (status, status, plan_id))
+        return self.execute_query("UPDATE production_plans SET plan_status = %s WHERE id = %s", (status, plan_id))
 
     def delete_production_plan(self, plan_id):
-        """حذف برنامه پرورش (و تمام وظایف مرتبط)"""
         return self.execute_query("DELETE FROM production_plans WHERE id = %s", (plan_id,))
 
-    # ---------- plan_tasks (وظایف برنامه پرورش) ----------
     def get_plan_tasks(self, plan_id):
-        """دریافت وظایف یک برنامه"""
-        return self.fetch_all("""
-            SELECT * FROM plan_tasks 
-            WHERE plan_id = %s 
-            ORDER BY scheduled_date, scheduled_start_time
-        """, (plan_id,))
+        return self.fetch_all("SELECT * FROM plan_tasks WHERE plan_id = %s ORDER BY scheduled_date", (plan_id,))
 
     def add_plan_task(self, plan_id, template_id, task_title, task_description, category,
                       scheduled_date, scheduled_start_time, estimated_duration_minutes,
                       assigned_to_personnel_id, assigned_to_unit, priority_level):
-        """افزودن وظیفه به برنامه"""
         return self.execute_query("""
             INSERT INTO plan_tasks 
             (plan_id, template_id, task_title, task_description, category,
@@ -532,117 +467,30 @@ class DatabaseHandler:
               scheduled_date, scheduled_start_time, estimated_duration_minutes,
               assigned_to_personnel_id, assigned_to_unit, priority_level))
 
-    def update_plan_task(self, task_id, task_title, task_description, category,
-                         scheduled_date, scheduled_start_time, estimated_duration_minutes,
-                         assigned_to_personnel_id, assigned_to_unit, priority_level):
-        """ویرایش وظیفه"""
-        return self.execute_query("""
-            UPDATE plan_tasks 
-            SET task_title = %s, task_description = %s, category = %s,
-                scheduled_date = %s, scheduled_start_time = %s, estimated_duration_minutes = %s,
-                assigned_to_personnel_id = %s, assigned_to_unit = %s, priority_level = %s
-            WHERE id = %s
-        """, (task_title, task_description, category, scheduled_date, scheduled_start_time,
-              estimated_duration_minutes, assigned_to_personnel_id, assigned_to_unit, priority_level, task_id))
-
-    def update_task_execution_status(self, task_id, status, completion_report=None):
-        """به‌روزرسانی وضعیت اجرای وظیفه"""
-        if completion_report:
-            return self.execute_query("""
-                UPDATE plan_tasks 
-                SET execution_status = %s, completed_at = IF(%s = 'completed', NOW(), completed_at),
-                    completion_report = %s
-                WHERE id = %s
-            """, (status, status, completion_report, task_id))
-        return self.execute_query("""
-            UPDATE plan_tasks 
-            SET execution_status = %s, completed_at = IF(%s = 'completed', NOW(), completed_at)
-            WHERE id = %s
-        """, (status, status, task_id))
-
-    def delete_plan_task(self, task_id):
-        """حذف وظیفه"""
-        return self.execute_query("DELETE FROM plan_tasks WHERE id = %s", (task_id,))
-
-    # ---------- plan_execution_logs ----------
-    def add_execution_log(self, task_id, executed_by, actual_duration_minutes, work_report, has_issue=False, issue_description=""):
-        """ثبت گزارش اجرای وظیفه"""
-        return self.execute_query("""
-            INSERT INTO plan_execution_logs 
-            (task_id, executed_by, actual_duration_minutes, work_report, has_issue, issue_description, approval_status)
-            VALUES (%s, %s, %s, %s, %s, %s, 'pending')
-        """, (task_id, executed_by, actual_duration_minutes, work_report, has_issue, issue_description))
-
-    def get_execution_logs_by_task(self, task_id):
-        """دریافت گزارش‌های اجرای یک وظیفه"""
-        return self.fetch_all("""
-            SELECT * FROM plan_execution_logs 
-            WHERE task_id = %s 
-            ORDER BY executed_at DESC
-        """, (task_id,))
-
-    def approve_execution_log(self, log_id, reviewed_by, approval_status, rejection_reason=None):
-        """تایید یا رد گزارش اجرا"""
-        if rejection_reason:
-            return self.execute_query("""
-                UPDATE plan_execution_logs 
-                SET approval_status = %s, reviewed_by = %s, reviewed_at = NOW(), rejection_reason = %s
-                WHERE id = %s
-            """, (approval_status, reviewed_by, rejection_reason, log_id))
-        return self.execute_query("""
-            UPDATE plan_execution_logs 
-            SET approval_status = %s, reviewed_by = %s, reviewed_at = NOW()
-            WHERE id = %s
-        """, (approval_status, reviewed_by, log_id))
-
-    # ==================== برنامه نت (Maintenance Plans) ====================
+    # ==================== برنامه نت ====================
 
     def get_maintenance_plans(self, asset_type=None):
-        """دریافت لیست برنامه‌های نت"""
         if asset_type:
             return self.fetch_all("SELECT * FROM maintenance_plans WHERE asset_type = %s ORDER BY start_date DESC", (asset_type,))
         return self.fetch_all("SELECT * FROM maintenance_plans ORDER BY start_date DESC")
 
     def get_maintenance_plan_by_id(self, plan_id):
-        """دریافت یک برنامه نت با شناسه"""
         return self.fetch_one("SELECT * FROM maintenance_plans WHERE id = %s", (plan_id,))
 
     def create_maintenance_plan(self, plan_title, plan_type, start_date, end_date, asset_type, asset_id, notes=""):
-        """ایجاد برنامه نت جدید"""
         return self.execute_query("""
             INSERT INTO maintenance_plans (plan_title, plan_type, start_date, end_date, asset_type, asset_id, plan_status, planned_by, notes)
             VALUES (%s, %s, %s, %s, %s, %s, 'draft', 1, %s)
         """, (plan_title, plan_type, start_date, end_date, asset_type, asset_id, notes))
 
-    def update_maintenance_plan(self, plan_id, plan_title, plan_type, start_date, end_date, asset_type, asset_id, notes):
-        """ویرایش برنامه نت"""
-        return self.execute_query("""
-            UPDATE maintenance_plans 
-            SET plan_title = %s, plan_type = %s, start_date = %s, end_date = %s, 
-                asset_type = %s, asset_id = %s, notes = %s
-            WHERE id = %s
-        """, (plan_title, plan_type, start_date, end_date, asset_type, asset_id, notes, plan_id))
-
-    def update_maintenance_plan_status(self, plan_id, status):
-        """به‌روزرسانی وضعیت برنامه نت"""
-        return self.execute_query("""
-            UPDATE maintenance_plans 
-            SET plan_status = %s, submitted_at = IF(%s = 'submitted', NOW(), submitted_at)
-            WHERE id = %s
-        """, (status, status, plan_id))
-
     def delete_maintenance_plan(self, plan_id):
-        """حذف برنامه نت (و تمام وظایف مرتبط)"""
         return self.execute_query("DELETE FROM maintenance_plans WHERE id = %s", (plan_id,))
 
-    # ---------- maintenance_plan_tasks (وظایف برنامه نت) ----------
     def get_maintenance_tasks(self, plan_id):
-        """دریافت وظایف یک برنامه نت"""
         return self.fetch_all("SELECT * FROM maintenance_plan_tasks WHERE plan_id = %s ORDER BY scheduled_date", (plan_id,))
 
     def add_maintenance_task(self, plan_id, template_id, task_title, task_description, category,
                              scheduled_date, scheduled_start_time, estimated_duration_minutes, assigned_to_team, priority_level):
-        """افزودن وظیفه به برنامه نت"""
         return self.execute_query("""
             INSERT INTO maintenance_plan_tasks 
             (plan_id, template_id, task_title, task_description, category,
@@ -651,26 +499,7 @@ class DatabaseHandler:
         """, (plan_id, template_id, task_title, task_description, category,
               scheduled_date, scheduled_start_time, estimated_duration_minutes, assigned_to_team, priority_level))
 
-    def update_maintenance_task_status(self, task_id, status, completion_report=None):
-        """به‌روزرسانی وضعیت اجرای وظیفه نت"""
-        if completion_report:
-            return self.execute_query("""
-                UPDATE maintenance_plan_tasks 
-                SET execution_status = %s, completed_at = IF(%s = 'completed', NOW(), completed_at),
-                    completion_report = %s
-                WHERE id = %s
-            """, (status, status, completion_report, task_id))
-        return self.execute_query("""
-            UPDATE maintenance_plan_tasks 
-            SET execution_status = %s, completed_at = IF(%s = 'completed', NOW(), completed_at)
-            WHERE id = %s
-        """, (status, status, task_id))
-
-    def delete_maintenance_task(self, task_id):
-        """حذف وظیفه نت"""
-        return self.execute_query("DELETE FROM maintenance_plan_tasks WHERE id = %s", (task_id,))
-
-    # ==================== پیشنهادات هوشمند (AI Suggestions) ====================
+    # ==================== پیشنهادات هوشمند ====================
 
     def get_ai_suggestions(self, status='pending'):
         """دریافت پیشنهادات هوشمند"""
@@ -681,7 +510,7 @@ class DatabaseHandler:
         """, (status,))
 
     def get_all_ai_suggestions(self):
-        """دریافت همه پیشنهادات هوشمند (بدون فیلتر وضعیت)"""
+        """دریافت همه پیشنهادات هوشمند"""
         return self.fetch_all("SELECT * FROM ai_suggestions ORDER BY priority, created_at DESC")
 
     def add_ai_suggestion(self, suggestion_type, title, description, priority=2, suggested_date=None, reasoning=""):
@@ -703,21 +532,18 @@ class DatabaseHandler:
         """حذف یک پیشنهاد هوشمند"""
         return self.execute_query("DELETE FROM ai_suggestions WHERE id = %s", (suggestion_id,))
 
-    # ==================== قوانین هوشمند (Smart Rules Settings) ====================
+    # ==================== قوانین هوشمند ====================
 
     def get_rule_value(self, rule_name, default=None):
-        """دریافت مقدار یک قانون هوشمند"""
         result = self.fetch_one("SELECT rule_value FROM smart_rules_settings WHERE rule_name = %s", (rule_name,))
         if result:
             return float(result['rule_value'])
         return default
 
     def get_all_rules(self):
-        """دریافت همه قوانین هوشمند"""
         return self.fetch_all("SELECT * FROM smart_rules_settings ORDER BY id")
 
     def update_rule_value(self, rule_name, rule_value, updated_by="admin"):
-        """به‌روزرسانی مقدار یک قانون"""
         return self.execute_query("""
             UPDATE smart_rules_settings 
             SET rule_value = %s, updated_by = %s, updated_at = NOW()
@@ -725,13 +551,11 @@ class DatabaseHandler:
         """, (rule_value, updated_by, rule_name))
 
     def update_multiple_rules(self, rules_dict, updated_by="admin"):
-        """به‌روزرسانی چندین قانون همزمان"""
         for rule_name, rule_value in rules_dict.items():
             self.update_rule_value(rule_name, rule_value, updated_by)
         return True
 
     def reset_rules_to_default(self):
-        """بازنشانی قوانین به مقادیر پیش‌فرض"""
         default_values = {
             'temp_alert_high': 24,
             'temp_critical_high': 26,
@@ -752,3 +576,77 @@ class DatabaseHandler:
                 WHERE rule_name = %s
             """, (rule_value, rule_name))
         return True
+
+    # ==================== جیره‌بندی ====================
+
+    def save_diet_formulation(self, production_cycle_id, cage_id, formulation_date, species,
+                              avg_weight_gram, water_temperature, daily_feed_rate,
+                              calculated_feed_kg, feed_type, fcr_target, nutritionist_id, notes=""):
+        return self.execute_query("""
+            INSERT INTO diet_formulations 
+            (production_cycle_id, cage_id, formulation_date, species, avg_weight_gram,
+             water_temperature, daily_feed_rate, calculated_feed_kg, feed_type,
+             fcr_target, nutritionist_id, notes)
+            VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
+        """, (production_cycle_id, cage_id, formulation_date, species, avg_weight_gram,
+              water_temperature, daily_feed_rate, calculated_feed_kg, feed_type,
+              fcr_target, nutritionist_id, notes))
+
+    def get_diet_formulations_by_cycle(self, production_cycle_id):
+        return self.fetch_all("""
+            SELECT * FROM diet_formulations 
+            WHERE production_cycle_id = %s 
+            ORDER BY formulation_date DESC
+        """, (production_cycle_id,))
+
+    def get_diet_formulation_by_id(self, formulation_id):
+        return self.fetch_one("SELECT * FROM diet_formulations WHERE id = %s", (formulation_id,))
+
+    def add_feeding_recommendation(self, diet_formulation_id, recommendation_date, 
+                                   recommended_feed_kg, recommended_feed_time):
+        return self.execute_query("""
+            INSERT INTO feeding_recommendations 
+            (diet_formulation_id, recommendation_date, recommended_feed_kg, recommended_feed_time)
+            VALUES (%s, %s, %s, %s)
+        """, (diet_formulation_id, recommendation_date, recommended_feed_kg, recommended_feed_time))
+
+    def get_feeding_recommendations_by_formulation(self, diet_formulation_id):
+        return self.fetch_all("""
+            SELECT * FROM feeding_recommendations 
+            WHERE diet_formulation_id = %s 
+            ORDER BY recommendation_date
+        """, (diet_formulation_id,))
+
+    def update_feeding_recommendation_status(self, recommendation_id, status):
+        return self.execute_query("UPDATE feeding_recommendations SET status = %s WHERE id = %s", (status, recommendation_id))
+
+    def calculate_feed_rate(self, species, avg_weight_gram, water_temperature):
+        if avg_weight_gram < 50:
+            base_rate = 6.0
+        elif avg_weight_gram < 200:
+            base_rate = 4.0
+        elif avg_weight_gram < 1000:
+            base_rate = 2.5
+        else:
+            base_rate = 1.5
+        
+        if water_temperature < 12:
+            temp_factor = 0.5
+        elif water_temperature < 16:
+            temp_factor = 0.7
+        elif water_temperature < 22:
+            temp_factor = 1.0
+        elif water_temperature < 26:
+            temp_factor = 0.8
+        else:
+            temp_factor = 0.5
+        
+        return round(base_rate * temp_factor, 1)
+
+    def get_feed_type_by_weight(self, avg_weight_gram):
+        if avg_weight_gram < 50:
+            return 'شروع (0-20 گرم)'
+        elif avg_weight_gram < 200:
+            return 'رشد (20-100 گرم)'
+        else:
+            return 'پایانی (100+ گرم)'
