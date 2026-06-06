@@ -1,7 +1,7 @@
 """
 دیالوگ ثبت تغذیه روزانه برای ERP-Aqua
 """
-
+""
 from PyQt5 import QtWidgets, QtCore
 
 from .base_dialog import BaseDialog

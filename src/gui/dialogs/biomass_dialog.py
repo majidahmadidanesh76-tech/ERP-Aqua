@@ -2,7 +2,7 @@
 دیالوگ ثبت زیست توده (تخمین وزن و تعداد ماهی) برای ERP-Aqua
 نسخه نهایی - بدون وزن کل تخمینی
 """
-
+""
 from PyQt5 import QtWidgets, QtCore
 
 from .base_dialog import BaseDialog

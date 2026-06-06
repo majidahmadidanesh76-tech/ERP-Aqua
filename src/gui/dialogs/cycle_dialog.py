@@ -1,7 +1,7 @@
 """
 دیالوگ شروع/ویرایش دوره پرورش قفس
 """
-
+""
 from PyQt5 import QtWidgets, QtCore
 
 from .base_dialog import BaseDialog
