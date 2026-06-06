@@ -1,5 +1,5 @@
 """
-واسط بین برنامه و دیتابیس - نسخه نهایی با پشتیبانی از برنامه‌ریزی تولید و نت
+واسط بین برنامه و دیتابیس - نسخه نهایی با پشتیبانی از برنامه‌ریزی تولید، نت و پیشنهادات هوشمند
 """
 
 from .db_manager import DatabaseManager
@@ -669,3 +669,86 @@ class DatabaseHandler:
     def delete_maintenance_task(self, task_id):
         """حذف وظیفه نت"""
         return self.execute_query("DELETE FROM maintenance_plan_tasks WHERE id = %s", (task_id,))
+
+    # ==================== پیشنهادات هوشمند (AI Suggestions) ====================
+
+    def get_ai_suggestions(self, status='pending'):
+        """دریافت پیشنهادات هوشمند"""
+        return self.fetch_all("""
+            SELECT * FROM ai_suggestions 
+            WHERE status = %s 
+            ORDER BY priority, created_at DESC
+        """, (status,))
+
+    def get_all_ai_suggestions(self):
+        """دریافت همه پیشنهادات هوشمند (بدون فیلتر وضعیت)"""
+        return self.fetch_all("SELECT * FROM ai_suggestions ORDER BY priority, created_at DESC")
+
+    def add_ai_suggestion(self, suggestion_type, title, description, priority=2, suggested_date=None, reasoning=""):
+        """افزودن پیشنهاد هوشمند جدید"""
+        return self.execute_query("""
+            INSERT INTO ai_suggestions (suggestion_type, title, description, priority, suggested_date, reasoning)
+            VALUES (%s, %s, %s, %s, %s, %s)
+        """, (suggestion_type, title, description, priority, suggested_date, reasoning))
+
+    def accept_suggestion(self, suggestion_id):
+        """پذیرش یک پیشنهاد هوشمند"""
+        return self.execute_query("UPDATE ai_suggestions SET status = 'accepted' WHERE id = %s", (suggestion_id,))
+
+    def reject_suggestion(self, suggestion_id):
+        """رد یک پیشنهاد هوشمند"""
+        return self.execute_query("UPDATE ai_suggestions SET status = 'rejected' WHERE id = %s", (suggestion_id,))
+
+    def delete_suggestion(self, suggestion_id):
+        """حذف یک پیشنهاد هوشمند"""
+        return self.execute_query("DELETE FROM ai_suggestions WHERE id = %s", (suggestion_id,))
+
+    # ==================== قوانین هوشمند (Smart Rules Settings) ====================
+
+    def get_rule_value(self, rule_name, default=None):
+        """دریافت مقدار یک قانون هوشمند"""
+        result = self.fetch_one("SELECT rule_value FROM smart_rules_settings WHERE rule_name = %s", (rule_name,))
+        if result:
+            return float(result['rule_value'])
+        return default
+
+    def get_all_rules(self):
+        """دریافت همه قوانین هوشمند"""
+        return self.fetch_all("SELECT * FROM smart_rules_settings ORDER BY id")
+
+    def update_rule_value(self, rule_name, rule_value, updated_by="admin"):
+        """به‌روزرسانی مقدار یک قانون"""
+        return self.execute_query("""
+            UPDATE smart_rules_settings 
+            SET rule_value = %s, updated_by = %s, updated_at = NOW()
+            WHERE rule_name = %s
+        """, (rule_value, updated_by, rule_name))
+
+    def update_multiple_rules(self, rules_dict, updated_by="admin"):
+        """به‌روزرسانی چندین قانون همزمان"""
+        for rule_name, rule_value in rules_dict.items():
+            self.update_rule_value(rule_name, rule_value, updated_by)
+        return True
+
+    def reset_rules_to_default(self):
+        """بازنشانی قوانین به مقادیر پیش‌فرض"""
+        default_values = {
+            'temp_alert_high': 24,
+            'temp_critical_high': 26,
+            'o2_alert_low': 5,
+            'o2_critical_low': 4,
+            'salinity_min': 25,
+            'salinity_max': 40,
+            'mortality_threshold': 0.1,
+            'net_clean_days': 30,
+            'harvest_threshold': 0.9,
+            'combined_temp_o2_alert': 2,
+            'max_suggestions_per_day': 10
+        }
+        for rule_name, rule_value in default_values.items():
+            self.execute_query("""
+                UPDATE smart_rules_settings 
+                SET rule_value = %s, updated_by = 'system_reset', updated_at = NOW()
+                WHERE rule_name = %s
+            """, (rule_value, rule_name))
+        return True

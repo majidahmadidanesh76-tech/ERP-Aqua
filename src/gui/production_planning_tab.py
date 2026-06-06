@@ -1,6 +1,6 @@
 """
 صفحه برنامه‌ریزی تولید حرفه‌ای
-شامل دو تب: برنامه پرورش (متصل به قفس) و برنامه نت (متصل به تجهیزات)
+شامل سه تب: برنامه پرورش، برنامه نت، پیشنهادات هوشمند
 """
 
 from PyQt5 import QtWidgets, QtCore, QtGui
@@ -92,9 +92,13 @@ class ProductionPlanningTab(QtWidgets.QWidget):
         self.production_tab = self.create_production_tab(glass_btn_style)
         self.main_tabs.addTab(self.production_tab, "🐟 برنامه پرورش")
 
-        # تب 2: برنامه تعمیرات و نگهداری (نت)
+        # تب 2: برنامه نت
         self.maintenance_tab = self.create_maintenance_tab(glass_btn_style)
         self.main_tabs.addTab(self.maintenance_tab, "🛠️ برنامه نت")
+
+        # تب 3: پیشنهادات هوشمند
+        self.smart_tab = self.create_smart_tab(glass_btn_style)
+        self.main_tabs.addTab(self.smart_tab, "🤖 پیشنهادات هوشمند")
 
         layout.addWidget(self.main_tabs)
 
@@ -480,6 +484,77 @@ class ProductionPlanningTab(QtWidgets.QWidget):
 
         return tab
 
+    def create_smart_tab(self, glass_btn_style):
+        """ایجاد تب پیشنهادات هوشمند"""
+        tab = QtWidgets.QWidget()
+        layout = QtWidgets.QVBoxLayout(tab)
+        layout.setSpacing(10)
+
+        # نوار ابزار
+        toolbar = QtWidgets.QHBoxLayout()
+        
+        self.refresh_smart_btn = QtWidgets.QToolButton()
+        self.refresh_smart_btn.setIcon(qta.icon('fa5s.sync-alt', color='#C8C8C8'))
+        self.refresh_smart_btn.setIconSize(QtCore.QSize(18, 18))
+        self.refresh_smart_btn.setToolTip("بروزرسانی پیشنهادات")
+        self.refresh_smart_btn.setStyleSheet(glass_btn_style)
+        self.refresh_smart_btn.clicked.connect(self.load_smart_suggestions)
+        toolbar.addWidget(self.refresh_smart_btn)
+        
+        # دکمه تنظیمات
+        self.settings_btn = QtWidgets.QToolButton()
+        self.settings_btn.setIcon(qta.icon('fa5s.cog', color='#C8C8C8'))
+        self.settings_btn.setIconSize(QtCore.QSize(18, 18))
+        self.settings_btn.setToolTip("تنظیمات قوانین هوشمند")
+        self.settings_btn.setStyleSheet(glass_btn_style)
+        self.settings_btn.clicked.connect(self.open_smart_rules_settings)
+        toolbar.addWidget(self.settings_btn)
+        
+        toolbar.addStretch()
+        layout.addLayout(toolbar)
+
+        # جدول پیشنهادات
+        self.smart_table = QtWidgets.QTableWidget()
+        self.smart_table.setColumnCount(7)
+        self.smart_table.setHorizontalHeaderLabels(["نوع", "عنوان", "توضیحات", "اولویت", "تاریخ پیشنهادی", "دلیل", "عملیات"])
+        self.smart_table.horizontalHeader().setStretchLastSection(True)
+        self.smart_table.setColumnWidth(0, 80)
+        self.smart_table.setColumnWidth(1, 150)
+        self.smart_table.setColumnWidth(2, 200)
+        self.smart_table.setColumnWidth(3, 60)
+        self.smart_table.setColumnWidth(4, 100)
+        self.smart_table.setColumnWidth(5, 200)
+        self.smart_table.setStyleSheet("""
+            QTableWidget {
+                border: 1px solid #3E3E42;
+                border-radius: 4px;
+                background-color: #2D2D30;
+                alternate-background-color: #252526;
+                gridline-color: #3E3E42;
+            }
+            QTableWidget::item {
+                padding: 8px 5px;
+            }
+            QTableWidget::item:selected {
+                background-color: #3A3A3A;
+            }
+            QTableWidget::item:hover {
+                background-color: #353535;
+            }
+            QHeaderView::section {
+                background-color: #252526;
+                color: #C8C8C8;
+                border: none;
+                border-bottom: 1px solid #3E3E42;
+                padding: 8px;
+                font-weight: bold;
+            }
+        """)
+        layout.addWidget(self.smart_table)
+
+        self.load_smart_suggestions()
+        return tab
+
     def setup_status_bar(self, parent_layout):
         """تنظیم نوار وضعیت پایینی"""
         status_frame = QtWidgets.QFrame()
@@ -506,13 +581,25 @@ class ProductionPlanningTab(QtWidgets.QWidget):
         status_layout.addStretch()
         parent_layout.addWidget(status_frame)
 
-    # ==================== توابع برنامه پرورش ====================
+    # ==================== توابع کمکی ====================
 
     def load_data(self):
         """بارگذاری داده‌ها"""
         self.load_cages()
         self.load_production_plans()
         self.load_maintenance_plans()
+
+    def load_cages(self):
+        """بارگذاری لیست قفس‌ها"""
+        self.cage_combo.clear()
+        cages = self.db.fetch_all("SELECT id FROM cages ORDER BY id")
+        if cages:
+            for cage in cages:
+                self.cage_combo.addItem(cage['id'], cage['id'])
+            if self.cage_combo.count() > 0:
+                self.cage_combo.setCurrentIndex(0)
+        else:
+            self.cage_combo.addItem("--- هیچ قفسی موجود نیست ---")
 
     def refresh_production_data(self):
         """به‌روزرسانی داده‌های تب پرورش"""
@@ -528,17 +615,7 @@ class ProductionPlanningTab(QtWidgets.QWidget):
             self.load_maintenance_tasks()
         QtWidgets.QMessageBox.information(self, "به‌روزرسانی", "داده‌های برنامه نت به‌روزرسانی شد")
 
-    def load_cages(self):
-        """بارگذاری لیست قفس‌ها"""
-        self.cage_combo.clear()
-        cages = self.db.fetch_all("SELECT id FROM cages ORDER BY id")
-        if cages:
-            for cage in cages:
-                self.cage_combo.addItem(cage['id'], cage['id'])
-            if self.cage_combo.count() > 0:
-                self.cage_combo.setCurrentIndex(0)
-        else:
-            self.cage_combo.addItem("--- هیچ قفسی موجود نیست ---")
+    # ==================== توابع برنامه پرورش ====================
 
     def on_cage_changed(self):
         """تغییر قفس"""
@@ -827,11 +904,129 @@ class ProductionPlanningTab(QtWidgets.QWidget):
         if dialog.exec_():
             self.load_maintenance_tasks()
             QtWidgets.QMessageBox.information(self, "موفق", "وظیفه با موفقیت اضافه شد")
+    # ==================== توابع پیشنهادات هوشمند ====================
 
+    def load_smart_suggestions(self):
+        """بارگذاری پیشنهادات هوشمند از دیتابیس"""
+        suggestions = self.db.get_ai_suggestions()
+        self.smart_table.setRowCount(len(suggestions))
+        
+        type_names = {
+            'alert': '⚠️ هشدار',
+            'feeding': '🍽️ تغذیه',
+            'maintenance': '🛠️ نت',
+            'harvest': '💰 برداشت',
+            'inspection': '🔍 بازرسی',
+            'strategic': '📊 استراتژیک'
+        }
+        
+        priority_colors = {1: '#F48771', 2: '#DCDCAA', 3: '#C8C8C8'}
+        priority_text = {1: 'فوری', 2: 'متوسط', 3: 'کم'}
+        
+        for i, sug in enumerate(suggestions):
+            self.smart_table.setItem(i, 0, QtWidgets.QTableWidgetItem(type_names.get(sug['suggestion_type'], sug['suggestion_type'])))
+            self.smart_table.setItem(i, 1, QtWidgets.QTableWidgetItem(sug['title'][:50]))
+            self.smart_table.setItem(i, 2, QtWidgets.QTableWidgetItem(sug['description'][:80]))
+            priority_item = QtWidgets.QTableWidgetItem(priority_text.get(sug['priority'], 'متوسط'))
+            priority_item.setForeground(QtGui.QColor(priority_colors.get(sug['priority'], '#C8C8C8')))
+            self.smart_table.setItem(i, 3, priority_item)
+            self.smart_table.setItem(i, 4, QtWidgets.QTableWidgetItem(str(sug['suggested_date'] or '-')))
+            self.smart_table.setItem(i, 5, QtWidgets.QTableWidgetItem(sug['reasoning'][:100] if sug['reasoning'] else '-'))
+            
+            btn_widget = QtWidgets.QWidget()
+            btn_layout = QtWidgets.QHBoxLayout(btn_widget)
+            btn_layout.setContentsMargins(0, 0, 0, 0)
+            btn_layout.setSpacing(5)
+            
+            if sug['status'] == 'pending':
+                accept_btn = QtWidgets.QPushButton("✓ قبول")
+                accept_btn.setFixedSize(70, 28)
+                accept_btn.setStyleSheet("background-color: #2E8B57; color: white; border-radius: 3px; font-weight: bold;")
+                accept_btn.clicked.connect(lambda checked, sid=sug['id']: self.accept_smart_suggestion(sid))
+                
+                reject_btn = QtWidgets.QPushButton("✗ رد")
+                reject_btn.setFixedSize(70, 28)
+                reject_btn.setStyleSheet("background-color: #8B2C2C; color: white; border-radius: 3px; font-weight: bold;")
+                reject_btn.clicked.connect(lambda checked, sid=sug['id']: self.reject_smart_suggestion(sid))
+                
+                btn_layout.addWidget(accept_btn)
+                btn_layout.addWidget(reject_btn)
+            else:
+                status_text = "✅ پذیرفته شده" if sug['status'] == 'accepted' else "❌ رد شده"
+                status_label = QtWidgets.QLabel(status_text)
+                status_label.setStyleSheet("color: #808080; font-size: 11px;")
+                btn_layout.addWidget(status_label)
+            
+            btn_layout.addStretch()
+            self.smart_table.setCellWidget(i, 6, btn_widget)
+        
+        self.smart_table.verticalHeader().setDefaultSectionSize(45)
+
+    def accept_smart_suggestion(self, suggestion_id):
+        """پذیرش یک پیشنهاد هوشمند"""
+        suggestion = self.db.fetch_one("SELECT * FROM ai_suggestions WHERE id = %s", (suggestion_id,))
+        if not suggestion:
+            QtWidgets.QMessageBox.warning(self, "خطا", "پیشنهاد یافت نشد")
+            return
+        
+        if suggestion['suggestion_type'] == 'maintenance':
+            if self.current_maintenance_plan_id:
+                self.db.add_maintenance_task(
+                    self.current_maintenance_plan_id, None,
+                    suggestion['title'], suggestion['description'], 'inspection',
+                    suggestion['suggested_date'] or datetime.now().date(), '08:00:00', 60,
+                    'تیم خودکار', 2
+                )
+                msg = "وظیفه به برنامه نت اضافه شد"
+            else:
+                msg = "لطفاً ابتدا یک برنامه نت انتخاب کنید"
+                QtWidgets.QMessageBox.warning(self, "خطا", msg)
+                return
+        elif suggestion['suggestion_type'] == 'harvest':
+            if self.current_plan_id:
+                self.db.add_plan_task(
+                    self.current_plan_id, None,
+                    suggestion['title'], suggestion['description'], 'harvest',
+                    suggestion['suggested_date'] or datetime.now().date(), '08:00:00', 480,
+                    None, 'واحد برداشت', 1
+                )
+                msg = "وظیفه برداشت به برنامه پرورش اضافه شد"
+            else:
+                msg = "لطفاً ابتدا یک برنامه پرورش انتخاب کنید"
+                QtWidgets.QMessageBox.warning(self, "خطا", msg)
+                return
+        else:
+            msg = "هشدار ثبت شد"
+        
+        self.db.accept_suggestion(suggestion_id)
+        self.load_smart_suggestions()
+        QtWidgets.QMessageBox.information(self, "موفق", msg)
+
+    def reject_smart_suggestion(self, suggestion_id):
+        """رد یک پیشنهاد هوشمند"""
+        self.db.reject_suggestion(suggestion_id)
+        self.load_smart_suggestions()
+        QtWidgets.QMessageBox.information(self, "اطلاع", "پیشنهاد رد شد.")
+
+    def open_smart_rules_settings(self):
+        """باز کردن دیالوگ تنظیمات قوانین هوشمند"""
+        import traceback
+        try:
+            print("DEBUG: Trying to import SmartRulesSettingsDialog...")
+            from .dialogs.smart_rules_settings_dialog import SmartRulesSettingsDialog
+            print("DEBUG: Import successful")
+            dialog = SmartRulesSettingsDialog(self)
+            dialog.exec_()
+        except ImportError as e:
+            print(f"ImportError: {e}")
+            traceback.print_exc()
+            QtWidgets.QMessageBox.warning(self, "خطا", f"فایل دیالوگ یافت نشد:\n{str(e)}\n\nمسیر مورد انتظار:\nsrc/gui/dialogs/smart_rules_settings_dialog.py")
+        except Exception as e:
+            print(f"General Error: {e}")
+            traceback.print_exc()
+            QtWidgets.QMessageBox.warning(self, "خطا", f"خطا در باز کردن دیالوگ تنظیمات:\n{str(e)}")
 
 class PlanDialog(QtWidgets.QDialog):
-    """دیالوگ ایجاد/ویرایش برنامه پرورش"""
-
     def __init__(self, parent=None, cage_id=None, plan=None):
         super().__init__(parent)
         self.db = DatabaseHandler()
@@ -852,7 +1047,6 @@ class PlanDialog(QtWidgets.QDialog):
 
         self.title_edit = QtWidgets.QLineEdit()
         self.title_edit.setPlaceholderText("مثال: برنامه پرورش خرداد ۱۴۰۵")
-        self.title_edit.setMinimumHeight(30)
         layout.addRow("عنوان برنامه:", self.title_edit)
 
         self.type_combo = QtWidgets.QComboBox()
@@ -871,11 +1065,7 @@ class PlanDialog(QtWidgets.QDialog):
 
         btn_layout = QtWidgets.QHBoxLayout()
         ok_btn = QtWidgets.QPushButton("ذخیره")
-        ok_btn.setMinimumHeight(35)
-        ok_btn.setStyleSheet("background-color: rgba(60, 60, 65, 180); color: #C8C8C8; border-radius: 4px; padding: 6px 20px;")
         cancel_btn = QtWidgets.QPushButton("انصراف")
-        cancel_btn.setMinimumHeight(35)
-        cancel_btn.setStyleSheet("background-color: rgba(60, 60, 65, 180); color: #C8C8C8; border-radius: 4px; padding: 6px 20px;")
         cancel_btn.clicked.connect(self.reject)
         ok_btn.clicked.connect(self.accept)
         btn_layout.addWidget(ok_btn)
@@ -921,8 +1111,6 @@ class PlanDialog(QtWidgets.QDialog):
 
 
 class MaintenancePlanDialog(QtWidgets.QDialog):
-    """دیالوگ ایجاد برنامه نت جدید"""
-
     def __init__(self, parent=None, plan=None):
         super().__init__(parent)
         self.db = DatabaseHandler()
@@ -942,7 +1130,6 @@ class MaintenancePlanDialog(QtWidgets.QDialog):
 
         self.title_edit = QtWidgets.QLineEdit()
         self.title_edit.setPlaceholderText("مثال: برنامه شستشوی دوره‌ای تورها")
-        self.title_edit.setMinimumHeight(30)
         layout.addRow("عنوان برنامه:", self.title_edit)
 
         self.type_combo = QtWidgets.QComboBox()
@@ -970,11 +1157,7 @@ class MaintenancePlanDialog(QtWidgets.QDialog):
 
         btn_layout = QtWidgets.QHBoxLayout()
         ok_btn = QtWidgets.QPushButton("ذخیره")
-        ok_btn.setMinimumHeight(35)
-        ok_btn.setStyleSheet("background-color: rgba(60, 60, 65, 180); color: #C8C8C8; border-radius: 4px; padding: 6px 20px;")
         cancel_btn = QtWidgets.QPushButton("انصراف")
-        cancel_btn.setMinimumHeight(35)
-        cancel_btn.setStyleSheet("background-color: rgba(60, 60, 65, 180); color: #C8C8C8; border-radius: 4px; padding: 6px 20px;")
         cancel_btn.clicked.connect(self.reject)
         ok_btn.clicked.connect(self.accept)
         btn_layout.addWidget(ok_btn)
@@ -1030,8 +1213,6 @@ class MaintenancePlanDialog(QtWidgets.QDialog):
 
 
 class TaskDialog(QtWidgets.QDialog):
-    """دیالوگ افزودن/ویرایش وظیفه برای برنامه پرورش"""
-
     def __init__(self, parent=None, plan_id=None, task_id=None, is_maintenance=False):
         super().__init__(parent)
         self.db = DatabaseHandler()
@@ -1051,7 +1232,6 @@ class TaskDialog(QtWidgets.QDialog):
         layout.setSpacing(12)
         layout.setContentsMargins(20, 20, 20, 20)
 
-        # انتخاب از الگوهای تکراری
         self.template_combo = QtWidgets.QComboBox()
         self.template_combo.addItem("--- انتخاب از الگوها (اختیاری) ---", None)
         templates = self.db.get_all_task_templates(only_active=True)
@@ -1060,12 +1240,6 @@ class TaskDialog(QtWidgets.QDialog):
         self.template_combo.currentIndexChanged.connect(self.on_template_selected)
         layout.addRow("📚 الگوهای تکراری:", self.template_combo)
 
-        # دکمه مدیریت الگوها
-        manage_templates_btn = QtWidgets.QPushButton("✏️ مدیریت الگوها")
-        manage_templates_btn.setStyleSheet("background-color: rgba(60, 60, 65, 180); color: #C8C8C8; border-radius: 4px; padding: 4px 8px;")
-        manage_templates_btn.clicked.connect(self.manage_templates)
-        layout.addRow("", manage_templates_btn)
-
         line = QtWidgets.QFrame()
         line.setFrameShape(QtWidgets.QFrame.HLine)
         line.setStyleSheet("background-color: #3E3E42; margin: 5px 0;")
@@ -1073,7 +1247,6 @@ class TaskDialog(QtWidgets.QDialog):
 
         self.title_edit = QtWidgets.QLineEdit()
         self.title_edit.setPlaceholderText("مثال: شستشوی تور قفس")
-        self.title_edit.setMinimumHeight(30)
         layout.addRow("عنوان وظیفه:", self.title_edit)
 
         self.desc_edit = QtWidgets.QTextEdit()
@@ -1097,7 +1270,6 @@ class TaskDialog(QtWidgets.QDialog):
         self.duration.setValue(60)
         layout.addRow("مدت زمان:", self.duration)
 
-        # مسئول (با قابلیت انتخاب)
         self.responsible_combo = QtWidgets.QComboBox()
         self.responsible_combo.setEditable(True)
         self.responsible_combo.addItems(["واحد بهره برداری", "واحد فنی", "واحد تغذیه", "واحد تعمیرات", "واحد زیست‌توده"])
@@ -1109,27 +1281,12 @@ class TaskDialog(QtWidgets.QDialog):
 
         btn_layout = QtWidgets.QHBoxLayout()
         ok_btn = QtWidgets.QPushButton("ذخیره")
-        ok_btn.setMinimumHeight(40)
-        ok_btn.setStyleSheet("background-color: rgba(60, 60, 65, 180); color: #C8C8C8; border-radius: 4px; padding: 6px 20px;")
         cancel_btn = QtWidgets.QPushButton("انصراف")
-        cancel_btn.setMinimumHeight(40)
-        cancel_btn.setStyleSheet("background-color: rgba(60, 60, 65, 180); color: #C8C8C8; border-radius: 4px; padding: 6px 20px;")
         cancel_btn.clicked.connect(self.reject)
         ok_btn.clicked.connect(self.accept)
         btn_layout.addWidget(ok_btn)
         btn_layout.addWidget(cancel_btn)
         layout.addRow(btn_layout)
-
-    def manage_templates(self):
-        """مدیریت الگوهای وظایف"""
-        dialog = TemplateManagerDialog(self)
-        dialog.exec_()
-        # به‌روزرسانی لیست الگوها
-        self.template_combo.clear()
-        self.template_combo.addItem("--- انتخاب از الگوها (اختیاری) ---", None)
-        templates = self.db.get_all_task_templates(only_active=True)
-        for t in templates:
-            self.template_combo.addItem(f"{t['title']} ({t['category']})", t['id'])
 
     def on_template_selected(self, index):
         template_id = self.template_combo.currentData()
@@ -1238,8 +1395,6 @@ class TaskDialog(QtWidgets.QDialog):
 
 
 class MaintenanceTaskDialog(QtWidgets.QDialog):
-    """دیالوگ افزودن/ویرایش وظیفه برای برنامه نت"""
-
     def __init__(self, parent=None, plan_id=None, task_id=None):
         super().__init__(parent)
         self.db = DatabaseHandler()
@@ -1273,7 +1428,6 @@ class MaintenanceTaskDialog(QtWidgets.QDialog):
 
         self.title_edit = QtWidgets.QLineEdit()
         self.title_edit.setPlaceholderText("مثال: شستشوی تور قفس")
-        self.title_edit.setMinimumHeight(30)
         layout.addRow("عنوان وظیفه:", self.title_edit)
 
         self.desc_edit = QtWidgets.QTextEdit()
@@ -1308,11 +1462,7 @@ class MaintenanceTaskDialog(QtWidgets.QDialog):
 
         btn_layout = QtWidgets.QHBoxLayout()
         ok_btn = QtWidgets.QPushButton("ذخیره")
-        ok_btn.setMinimumHeight(40)
-        ok_btn.setStyleSheet("background-color: rgba(60, 60, 65, 180); color: #C8C8C8; border-radius: 4px; padding: 6px 20px;")
         cancel_btn = QtWidgets.QPushButton("انصراف")
-        cancel_btn.setMinimumHeight(40)
-        cancel_btn.setStyleSheet("background-color: rgba(60, 60, 65, 180); color: #C8C8C8; border-radius: 4px; padding: 6px 20px;")
         cancel_btn.clicked.connect(self.reject)
         ok_btn.clicked.connect(self.accept)
         btn_layout.addWidget(ok_btn)
@@ -1390,73 +1540,3 @@ class MaintenanceTaskDialog(QtWidgets.QDialog):
                 priority_map[self.priority.currentText()]
             )
         super().accept()
-
-
-class TemplateManagerDialog(QtWidgets.QDialog):
-    """دیالوگ مدیریت الگوهای وظایف"""
-
-    def __init__(self, parent=None):
-        super().__init__(parent)
-        self.db = DatabaseHandler()
-        self.setWindowTitle("مدیریت الگوهای وظایف")
-        self.setModal(True)
-        self.resize(600, 400)
-        self.setup_ui()
-        self.load_templates()
-
-    def setup_ui(self):
-        layout = QtWidgets.QVBoxLayout(self)
-
-        self.templates_table = QtWidgets.QTableWidget()
-        self.templates_table.setColumnCount(6)
-        self.templates_table.setHorizontalHeaderLabels(["شناسه", "عنوان", "دسته‌بندی", "مدت(دقیقه)", "اولویت", "فعال"])
-        self.templates_table.horizontalHeader().setStretchLastSection(True)
-        self.templates_table.setStyleSheet("""
-            QTableWidget {
-                border: 1px solid #3E3E42;
-                border-radius: 4px;
-                background-color: #2D2D30;
-                alternate-background-color: #252526;
-            }
-            QTableWidget::item:selected { background-color: #3A3A3A; }
-            QHeaderView::section {
-                background-color: #252526;
-                color: #C8C8C8;
-                border: none;
-                border-bottom: 1px solid #3E3E42;
-                padding: 6px;
-            }
-        """)
-        layout.addWidget(self.templates_table)
-
-        btn_layout = QtWidgets.QHBoxLayout()
-        add_btn = QtWidgets.QPushButton("➕ افزودن")
-        add_btn.setStyleSheet("background-color: rgba(60, 60, 65, 180); color: #C8C8C8; border-radius: 4px; padding: 6px 12px;")
-        add_btn.clicked.connect(self.add_template)
-        
-        close_btn = QtWidgets.QPushButton("بستن")
-        close_btn.setStyleSheet("background-color: rgba(60, 60, 65, 180); color: #C8C8C8; border-radius: 4px; padding: 6px 12px;")
-        close_btn.clicked.connect(self.accept)
-        
-        btn_layout.addWidget(add_btn)
-        btn_layout.addStretch()
-        btn_layout.addWidget(close_btn)
-        layout.addLayout(btn_layout)
-
-    def load_templates(self):
-        templates = self.db.get_all_task_templates(only_active=False)
-        self.templates_table.setRowCount(len(templates))
-        for i, t in enumerate(templates):
-            self.templates_table.setItem(i, 0, QtWidgets.QTableWidgetItem(str(t['id'])))
-            self.templates_table.setItem(i, 1, QtWidgets.QTableWidgetItem(t['title']))
-            self.templates_table.setItem(i, 2, QtWidgets.QTableWidgetItem(t['category']))
-            self.templates_table.setItem(i, 3, QtWidgets.QTableWidgetItem(str(t['estimated_duration_minutes'])))
-            self.templates_table.setItem(i, 4, QtWidgets.QTableWidgetItem(str(t['default_priority'])))
-            self.templates_table.setItem(i, 5, QtWidgets.QTableWidgetItem("✅" if t['is_active'] else "❌"))
-
-    def add_template(self):
-        title, ok = QtWidgets.QInputDialog.getText(self, "الگوی جدید", "عنوان وظیفه:")
-        if ok and title.strip():
-            self.db.add_task_template(title.strip(), "", "other", 60, 2, 1)
-            self.load_templates()
-            QtWidgets.QMessageBox.information(self, "موفق", "الگو با موفقیت اضافه شد")
