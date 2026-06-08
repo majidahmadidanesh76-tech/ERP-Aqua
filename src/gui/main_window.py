@@ -65,7 +65,7 @@ class MainWindow(QtWidgets.QMainWindow):
         # ==================== صفحات اصلی ====================
         self.setup_pages(main_layout)
 
-        # نمایش پیام خوش‌آمدگویی
+        # نمایش پیام خوشآمدگویی
         QtWidgets.QMessageBox.information(
             self, 
             "خوش آمدید", 
@@ -101,6 +101,18 @@ class MainWindow(QtWidgets.QMainWindow):
         dashboard_action = home_menu.addAction("داشبورد")
         home_menu.addSeparator()
 
+        # ========== زیرمنوی اطلاعات پایه ==========
+        base_info_menu = home_menu.addMenu("📋 اطلاعات پایه")
+        
+        equip_action = base_info_menu.addAction("🛠️ مدیریت تجهیزات")
+        equip_action.triggered.connect(self.open_equipment_management)
+        
+        species_action = base_info_menu.addAction("🐟 مدیریت گونه‌های ماهی")
+        species_action.triggered.connect(self.open_species_management)
+        
+        base_info_menu.addSeparator()
+        # ================================================
+
         # تعریف شرکت جدید (فقط برای ادمین)
         add_company_action = home_menu.addAction("تعریف شرکت جدید")
         add_company_action.triggered.connect(self.add_company)
@@ -131,14 +143,13 @@ class MainWindow(QtWidgets.QMainWindow):
         design_action = design_menu.addAction("طراحی مزرعه")
         design_action.triggered.connect(lambda: self.stacked.setCurrentIndex(1))
 
-        # ========== منوی برنامه‌ریزی تولید ==========
-        planning_menu = menubar.addMenu("برنامه‌ریزی تولید")
-        # آیتم‌های قدیمی غیرفعال شدند - فقط یک آیتم اصلی
-        planning_action = planning_menu.addAction("📋 برنامه‌ریزی تولید")
+        # ========== منوی برنامهریزی تولید ==========
+        planning_menu = menubar.addMenu("برنامه ریزی تولید")
+        planning_action = planning_menu.addAction("📋 برنامه ریزی تولید")
         planning_action.triggered.connect(lambda: self.open_planning_section(0))
 
-        # ========== منوی مدیریت آبزی‌پروری ==========
-        aquaculture_menu = menubar.addMenu("مدیریت آبزی‌پروری")
+        # ========== منوی مدیریت آبزیپروری ==========
+        aquaculture_menu = menubar.addMenu("مدیریت آبزی پروری")
 
         hatchery_action = aquaculture_menu.addAction("هچری")
         hatchery_action.setShortcut("Ctrl+H")
@@ -155,7 +166,7 @@ class MainWindow(QtWidgets.QMainWindow):
         # ========== منوی نظارت ==========
         monitor_menu = menubar.addMenu("نظارت")
         monitor_menu.addAction("دما و کیفیت آب")
-        monitor_menu.addAction("دوربین‌ها")
+        monitor_menu.addAction("دوربینها")
         monitor_menu.addAction("هشدارها")
 
         # ========== منوی فروش و سفارشات ==========
@@ -168,6 +179,24 @@ class MainWindow(QtWidgets.QMainWindow):
         dashboard_action.triggered.connect(lambda: self.stacked.setCurrentIndex(0))
         design_action.triggered.connect(lambda: self.stacked.setCurrentIndex(1))
         planning_action.triggered.connect(lambda: self.open_planning_section(0))
+
+    def open_equipment_management(self):
+        """باز کردن دیالوگ مدیریت تجهیزات"""
+        try:
+            from .dialogs.equipment_management_dialog import EquipmentManagementDialog
+            dialog = EquipmentManagementDialog(self)
+            dialog.exec_()
+        except ImportError as e:
+            QtWidgets.QMessageBox.warning(self, "خطا", f"فایل دیالوگ مدیریت تجهیزات یافت نشد:\n{str(e)}")
+
+    def open_species_management(self):
+        """باز کردن دیالوگ مدیریت گونه‌های ماهی"""
+        try:
+            from .dialogs.species_dialog import SpeciesManagementDialog
+            dialog = SpeciesManagementDialog(self)
+            dialog.exec_()
+        except ImportError as e:
+            QtWidgets.QMessageBox.warning(self, "خطا", f"فایل دیالوگ مدیریت گونه‌های ماهی یافت نشد:\n{str(e)}")
 
     def setup_sidebar(self, parent_layout):
         """تنظیم سایدبار سمت راست"""
@@ -182,12 +211,12 @@ class MainWindow(QtWidgets.QMainWindow):
         # ویجت نمایش شرکت (لوگو + نام)
         self.setup_company_widget(sidebar_layout)
 
-        # دکمه‌های منوی سایدبار
+        # دکمههای منوی سایدبار
         menu_items = [
             ("ساختار سازمانی", 0, 'fa5s.sitemap'),
             ("طراحی مزرعه", 1, 'fa5s.map-marked-alt'),
-            ("برنامه‌ریزی تولید", 2, 'fa5s.calendar-alt'),
-            ("مدیریت آبزی‌پروری", 3, 'fa5s.fish'),
+            ("برنامه ریزی تولید", 2, 'fa5s.calendar-alt'),
+            ("مدیریت آبزی پروری", 3, 'fa5s.fish'),
             ("نظارت", 4, 'fa5s.chart-line'),
             ("فروش و سفارشات", 5, 'fa5s.shopping-cart')
         ]
@@ -220,9 +249,9 @@ class MainWindow(QtWidgets.QMainWindow):
                 }
             """)
 
-            if text == "مدیریت آبزی‌پروری":
+            if text == "مدیریت آبزیپروری":
                 btn.clicked.connect(lambda: self.open_aquaculture_section(0))
-            elif text == "برنامه‌ریزی تولید":
+            elif text == "برنامهریزی تولید":
                 btn.clicked.connect(lambda: self.open_planning_section(0))
             else:
                 btn.clicked.connect(lambda _, i=idx: self.stacked.setCurrentIndex(i))
@@ -264,11 +293,11 @@ class MainWindow(QtWidgets.QMainWindow):
         self.design_page = FarmDesignTab()
         self.stacked.addWidget(self.design_page)
 
-        # صفحه 2: برنامه‌ریزی تولید
+        # صفحه 2: برنامهریزی تولید
         self.planning_tab = ProductionPlanningTab()
         self.stacked.addWidget(self.planning_tab)
 
-        # صفحه 3: مدیریت آبزی‌پروری
+        # صفحه 3: مدیریت آبزیپروری
         from .aquaculture_management_tab import AquacultureManagementTab
         self.aquaculture_tab = AquacultureManagementTab()
         self.stacked.addWidget(self.aquaculture_tab)
@@ -284,7 +313,7 @@ class MainWindow(QtWidgets.QMainWindow):
         parent_layout.addWidget(self.stacked, 1)
 
     def open_aquaculture_section(self, index=0):
-        """باز کردن صفحه مدیریت آبزی‌پروری با تب انتخابی (0=هچری, 1=نرسری, 2=پرورش)"""
+        """باز کردن صفحه مدیریت آبزیپروری با تب انتخابی (0=هچری, 1=نرسری, 2=پرورش)"""
         if hasattr(self, 'aquaculture_tab'):
             self.stacked.setCurrentWidget(self.aquaculture_tab)
             if hasattr(self.aquaculture_tab, 'tabs'):
@@ -296,7 +325,7 @@ class MainWindow(QtWidgets.QMainWindow):
                     )
 
     def open_planning_section(self, index=0):
-        """باز کردن صفحه برنامه‌ریزی تولید"""
+        """باز کردن صفحه برنامهریزی تولید"""
         if hasattr(self, 'planning_tab'):
             self.stacked.setCurrentWidget(self.planning_tab)
             if hasattr(self.planning_tab, 'main_tabs'):
@@ -353,5 +382,5 @@ class MainWindow(QtWidgets.QMainWindow):
         )
         if reply == QtWidgets.QMessageBox.Yes:
             self.close()
-            # راه‌اندازی مجدد برنامه
+            # راهاندازی مجدد برنامه
             os.execl(sys.executable, sys.executable, *sys.argv)
