@@ -1,8 +1,10 @@
 """
 صفحه طراحی و مدیریت مزرعه (بخش اصلی برنامه) برای ERP-Aqua
-نسخه دیتابیس - با دیباگ برای رفع مشکل ذخیره قفس
+نسخه دیتابیس - با قابلیت ذخیره و بازیابی آخرین انتخاب
 """
 
+import json
+import os
 from PyQt5 import QtWidgets, QtCore
 from functools import partial
 import qtawesome as qta
@@ -38,6 +40,7 @@ class FarmDesignTab(QtWidgets.QWidget):
         self.current_table_index = 0
         self.setup_ui()
         self.load_data()
+        self.load_last_selection()
 
     def setup_ui(self):
         """تنظیم رابط کاربری اصلی"""
@@ -82,6 +85,80 @@ class FarmDesignTab(QtWidgets.QWidget):
             self.small_icon_btns[0].setChecked(True)
             self.current_table_index = 0
             self.table_stacked.setCurrentIndex(0)
+
+    # ==================== متدهای ذخیره و بازیابی آخرین انتخاب ====================
+
+    def save_current_selection(self):
+        """ذخیره آخرین انتخاب در فایل"""
+        data = {
+            'current_farm_id': self.current_farm.id if self.current_farm else None,
+            'current_mooring_id': self.current_mooring.id if self.current_mooring else None
+        }
+        
+        try:
+            os.makedirs('data', exist_ok=True)
+            with open('data/last_selection.json', 'w', encoding='utf-8') as f:
+                json.dump(data, f, ensure_ascii=False)
+            print(f"ذخیره شد: farm={data['current_farm_id']}, mooring={data['current_mooring_id']}")
+        except Exception as e:
+            print(f"خطا در ذخیره: {e}")
+
+    def load_last_selection(self):
+        """بارگذاری آخرین انتخاب از فایل"""
+        if not os.path.exists('data/last_selection.json'):
+            print("فایل last_selection.json وجود ندارد")
+            return
+        
+        try:
+            with open('data/last_selection.json', 'r', encoding='utf-8') as f:
+                data = json.load(f)
+            
+            farm_id = data.get('current_farm_id')
+            mooring_id = data.get('current_mooring_id')
+            
+            print(f"بارگذاری: farm={farm_id}, mooring={mooring_id}")
+            
+            if farm_id:
+                for farm in self.farms:
+                    if farm.id == farm_id:
+                        self.current_farm = farm
+                        # تنظیم کامبوباکس مزرعه
+                        for i in range(self.farm_combo.count()):
+                            if self.farm_combo.itemData(i) == farm_id:
+                                self.farm_combo.setCurrentIndex(i)
+                                break
+                        break
+            
+            if mooring_id and self.current_farm:
+                for mooring in self.current_farm.moorings:
+                    if mooring.id == mooring_id:
+                        self.current_mooring = mooring
+                        # تنظیم کامبوباکس مورینگ
+                        for i in range(self.mooring_combo.count()):
+                            if self.mooring_combo.itemData(i) == mooring_id:
+                                self.mooring_combo.setCurrentIndex(i)
+                                break
+                        break
+            
+            if self.current_farm:
+                self.update_mooring_list()
+                self.graphics_view.set_farm(self.current_farm)
+                self.graphics_view.draw_system()
+                self.update_all_tables()
+                print(f"بازیابی انجام شد: farm={self.current_farm.id if self.current_farm else None}, mooring={self.current_mooring.id if self.current_mooring else None}")
+                
+        except Exception as e:
+            print(f"خطا در بارگذاری آخرین انتخاب: {e}")
+
+    def get_current_farm(self):
+        """دریافت مزرعه جاری"""
+        return self.current_farm
+
+    def get_current_mooring(self):
+        """دریافت مورینگ جاری"""
+        return self.current_mooring
+
+    # ==================== پنل آیکونها ====================
 
     def setup_icon_panel(self, parent_layout):
         """تنظیم پنل آیکونهای کوچک برای انتخاب جدول (فقط آیکون)"""
@@ -145,6 +222,8 @@ class FarmDesignTab(QtWidgets.QWidget):
 
         parent_layout.addWidget(icon_panel)
 
+    # ==================== جدولها ====================
+
     def setup_table_stacked(self, parent_layout):
         """تنظیم استک ویجت جدولها"""
         self.table_stacked = QtWidgets.QStackedWidget()
@@ -180,6 +259,75 @@ class FarmDesignTab(QtWidgets.QWidget):
         self.table_stacked.addWidget(self.collector_table_widget)
 
         parent_layout.addWidget(self.table_stacked)
+
+    def create_simple_table(self):
+        """ایجاد جدول ساده با 2 ستون: جزء و عملیات"""
+        tab = QtWidgets.QWidget()
+        layout = QtWidgets.QVBoxLayout(tab)
+        layout.setContentsMargins(2, 2, 2, 2)
+
+        table = QtWidgets.QTableWidget()
+        table.setColumnCount(2)
+        table.setHorizontalHeaderLabels(["جزء", "عملیات"])
+        table.horizontalHeader().setStretchLastSection(True)
+        table.verticalHeader().setDefaultSectionSize(TABLE_ROW_HEIGHT)
+        table.setColumnWidth(1, TABLE_ACTION_COLUMN_WIDTH)
+
+        layout.addWidget(table)
+        return tab, table
+
+    # ==================== توابع نمایش جدولها ====================
+    def show_buoy_table(self): 
+        self.table_stacked.setCurrentIndex(0)
+        self.current_table_index = 0
+        self.update_all_tables()
+    
+    def show_anchor_table(self): 
+        self.table_stacked.setCurrentIndex(1)
+        self.current_table_index = 1
+        self.update_all_tables()
+    
+    def show_chain_table(self): 
+        self.table_stacked.setCurrentIndex(2)
+        self.current_table_index = 2
+        self.update_all_tables()
+    
+    def show_rope_table(self): 
+        self.table_stacked.setCurrentIndex(3)
+        self.current_table_index = 3
+        self.update_all_tables()
+    
+    def show_buoy_chain_table(self): 
+        self.table_stacked.setCurrentIndex(4)
+        self.current_table_index = 4
+        self.update_all_tables()
+    
+    def show_shackle_table(self): 
+        self.table_stacked.setCurrentIndex(5)
+        self.current_table_index = 5
+        self.update_all_tables()
+    
+    def show_bridle_table(self): 
+        self.table_stacked.setCurrentIndex(6)
+        self.current_table_index = 6
+        self.update_all_tables()
+    
+    def show_cage_table(self): 
+        self.table_stacked.setCurrentIndex(7)
+        self.current_table_index = 7
+        self.update_all_tables()
+    
+    def show_net_table(self): 
+        self.table_stacked.setCurrentIndex(8)
+        self.current_table_index = 8
+        self.update_all_tables()
+    
+    def show_collector_table(self): 
+        self.table_stacked.setCurrentIndex(9)
+        self.current_table_index = 9
+        self.update_all_tables()
+
+    # ==================== توابع کمکی ====================
 
     def setup_mooring_list(self, parent_layout):
         """تنظیم لیست مورینگها (چکباکسها)"""
@@ -337,37 +485,8 @@ class FarmDesignTab(QtWidgets.QWidget):
             self.btn_group.addButton(btn)
             layout.addWidget(btn)
 
-    def create_simple_table(self):
-        """ایجاد جدول ساده با 2 ستون: جزء و عملیات"""
-        tab = QtWidgets.QWidget()
-        layout = QtWidgets.QVBoxLayout(tab)
-        layout.setContentsMargins(2, 2, 2, 2)
-
-        table = QtWidgets.QTableWidget()
-        table.setColumnCount(2)
-        table.setHorizontalHeaderLabels(["جزء", "عملیات"])
-        table.horizontalHeader().setStretchLastSection(True)
-        table.verticalHeader().setDefaultSectionSize(TABLE_ROW_HEIGHT)
-        table.setColumnWidth(1, TABLE_ACTION_COLUMN_WIDTH)
-
-        layout.addWidget(table)
-        return tab, table
-
-    # ==================== توابع نمایش جدولها ====================
-    def show_buoy_table(self): self.table_stacked.setCurrentIndex(0); self.current_table_index = 0; self.update_all_tables()
-    def show_anchor_table(self): self.table_stacked.setCurrentIndex(1); self.current_table_index = 1; self.update_all_tables()
-    def show_chain_table(self): self.table_stacked.setCurrentIndex(2); self.current_table_index = 2; self.update_all_tables()
-    def show_rope_table(self): self.table_stacked.setCurrentIndex(3); self.current_table_index = 3; self.update_all_tables()
-    def show_buoy_chain_table(self): self.table_stacked.setCurrentIndex(4); self.current_table_index = 4; self.update_all_tables()
-    def show_shackle_table(self): self.table_stacked.setCurrentIndex(5); self.current_table_index = 5; self.update_all_tables()
-    def show_bridle_table(self): self.table_stacked.setCurrentIndex(6); self.current_table_index = 6; self.update_all_tables()
-    def show_cage_table(self): self.table_stacked.setCurrentIndex(7); self.current_table_index = 7; self.update_all_tables()
-    def show_net_table(self): self.table_stacked.setCurrentIndex(8); self.current_table_index = 8; self.update_all_tables()
-    def show_collector_table(self): self.table_stacked.setCurrentIndex(9); self.current_table_index = 9; self.update_all_tables()
-
-    # ==================== توابع کمکی ====================
-
     def update_mooring_list(self):
+        """بروزرسانی لیست مورینگها"""
         self.mooring_list_widget.clear()
         if not self.current_farm:
             return
@@ -379,6 +498,7 @@ class FarmDesignTab(QtWidgets.QWidget):
         self.update_visibility()
 
     def update_visibility(self):
+        """بروزرسانی نمایش مورینگها در نقشه"""
         if not self.current_farm:
             return
         visible_ids = []
@@ -392,6 +512,7 @@ class FarmDesignTab(QtWidgets.QWidget):
         self.update_visibility()
 
     def update_farm_combo(self):
+        """بروزرسانی کامبوباکس مزارع"""
         self.farm_combo.clear()
         if self.farms:
             for farm in self.farms:
@@ -400,6 +521,7 @@ class FarmDesignTab(QtWidgets.QWidget):
                 self.farm_combo.setCurrentIndex(0)
 
     def update_mooring_combo(self):
+        """بروزرسانی کامبوباکس مورینگها"""
         self.mooring_combo.clear()
         if self.current_farm:
             for mooring in self.current_farm.moorings:
@@ -408,11 +530,13 @@ class FarmDesignTab(QtWidgets.QWidget):
                 self.mooring_combo.setCurrentIndex(0)
 
     def on_farm_selected(self, index):
+        """وقتی مزرعه انتخاب می‌شود"""
         if index < 0 or not self.farms:
             self.current_farm = None
             self.mooring_combo.clear()
             self.mooring_list_widget.clear()
             self.graphics_view.set_farm(None)
+            self.save_current_selection()
             return
         farm_id = self.farm_combo.currentData()
         for farm in self.farms:
@@ -423,8 +547,10 @@ class FarmDesignTab(QtWidgets.QWidget):
         self.update_mooring_list()
         self.graphics_view.set_farm(self.current_farm)
         self.graphics_view.draw_system()
+        self.save_current_selection()
 
     def on_mooring_selected(self, index):
+        """وقتی مورینگ انتخاب می‌شود"""
         if index < 0 or not self.current_farm:
             self.current_mooring = None
         else:
@@ -435,14 +561,17 @@ class FarmDesignTab(QtWidgets.QWidget):
                     break
         self.update_all_tables()
         self.graphics_view.draw_system()
+        self.save_current_selection()
 
     def refresh_map(self):
+        """بازخوانی نقشه"""
         if self.current_farm:
             self.graphics_view.set_farm(self.current_farm)
             self.update_visibility()
             self.graphics_view.draw_system()
 
     def create_action_buttons(self, edit_callback, delete_callback):
+        """ایجاد دکمه‌های عملیات برای جدول‌ها"""
         btn_widget = QtWidgets.QWidget()
         btn_layout = QtWidgets.QHBoxLayout(btn_widget)
         btn_layout.setContentsMargins(0, 0, 0, 0)
@@ -560,19 +689,9 @@ class FarmDesignTab(QtWidgets.QWidget):
             return
         dialog = EditMooringDialog(self, self.current_mooring)
         if dialog.exec_() and dialog.mooring:
-            old_id = self.current_mooring.id
             self.current_mooring.id = dialog.mooring.id
             self.current_mooring.name = dialog.mooring.name
             if self.db.save_mooring(self.current_mooring, self.current_farm.id):
-                for buoy in self.current_mooring.buoys:
-                    buoy.mooring_id = self.current_mooring.id
-                    self.db.save_buoy(buoy, self.current_mooring.id)
-                for anchor in self.current_mooring.anchors:
-                    anchor.mooring_id = self.current_mooring.id
-                    self.db.save_anchor(anchor, self.current_mooring.id)
-                for cage in self.current_mooring.cages:
-                    cage.mooring_id = self.current_mooring.id
-                    self.db.save_cage(cage, self.current_mooring.id)
                 self.update_mooring_combo()
                 self.update_mooring_list()
                 self.refresh_map()
@@ -947,6 +1066,7 @@ class FarmDesignTab(QtWidgets.QWidget):
     # ==================== توابع آپدیت جدولها ====================
 
     def update_all_tables(self):
+        """بروزرسانی همه جدولها"""
         if not self.current_mooring:
             self.clear_all_tables()
             return

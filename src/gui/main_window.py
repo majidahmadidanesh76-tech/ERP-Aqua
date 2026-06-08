@@ -18,7 +18,6 @@ from ..gui.dialogs.login_dialog import LoginDialog
 from ..gui.dialogs.change_password_dialog import ChangePasswordDialog
 from ..gui.dialogs.manage_users_dialog import ManageUsersDialog
 
-
 class MainWindow(QtWidgets.QMainWindow):
     """
     پنجره اصلی برنامه
@@ -65,6 +64,10 @@ class MainWindow(QtWidgets.QMainWindow):
         # ==================== صفحات اصلی ====================
         self.setup_pages(main_layout)
 
+        # بارگذاری آخرین انتخاب مزرعه و مورینگ
+        if hasattr(self, 'design_page'):
+            self.design_page.load_last_selection()
+
         # نمایش پیام خوشآمدگویی
         QtWidgets.QMessageBox.information(
             self, 
@@ -103,15 +106,14 @@ class MainWindow(QtWidgets.QMainWindow):
 
         # ========== زیرمنوی اطلاعات پایه ==========
         base_info_menu = home_menu.addMenu("📋 اطلاعات پایه")
-        
+
         equip_action = base_info_menu.addAction("🛠️ مدیریت تجهیزات")
         equip_action.triggered.connect(self.open_equipment_management)
-        
-        species_action = base_info_menu.addAction("🐟 مدیریت گونه‌های ماهی")
+
+        species_action = base_info_menu.addAction("🐟 مدیریت گونههای ماهی")
         species_action.triggered.connect(self.open_species_management)
-        
+
         base_info_menu.addSeparator()
-        # ================================================
 
         # تعریف شرکت جدید (فقط برای ادمین)
         add_company_action = home_menu.addAction("تعریف شرکت جدید")
@@ -190,13 +192,13 @@ class MainWindow(QtWidgets.QMainWindow):
             QtWidgets.QMessageBox.warning(self, "خطا", f"فایل دیالوگ مدیریت تجهیزات یافت نشد:\n{str(e)}")
 
     def open_species_management(self):
-        """باز کردن دیالوگ مدیریت گونه‌های ماهی"""
+        """باز کردن دیالوگ مدیریت گونههای ماهی"""
         try:
             from .dialogs.species_dialog import SpeciesManagementDialog
             dialog = SpeciesManagementDialog(self)
             dialog.exec_()
         except ImportError as e:
-            QtWidgets.QMessageBox.warning(self, "خطا", f"فایل دیالوگ مدیریت گونه‌های ماهی یافت نشد:\n{str(e)}")
+            QtWidgets.QMessageBox.warning(self, "خطا", f"فایل دیالوگ مدیریت گونههای ماهی یافت نشد:\n{str(e)}")
 
     def setup_sidebar(self, parent_layout):
         """تنظیم سایدبار سمت راست"""
@@ -249,9 +251,10 @@ class MainWindow(QtWidgets.QMainWindow):
                 }
             """)
 
-            if text == "مدیریت آبزیپروری":
-                btn.clicked.connect(lambda: self.open_aquaculture_section(0))
-            elif text == "برنامهریزی تولید":
+            # اصلاح مهم: مدیریت آبزی پروری باید تب پرورش در دریا را باز کند (index=2)
+            if text == "مدیریت آبزی پروری":
+                btn.clicked.connect(lambda: self.open_aquaculture_section(2))
+            elif text == "برنامه ریزی تولید":
                 btn.clicked.connect(lambda: self.open_planning_section(0))
             else:
                 btn.clicked.connect(lambda _, i=idx: self.stacked.setCurrentIndex(i))
@@ -312,17 +315,39 @@ class MainWindow(QtWidgets.QMainWindow):
 
         parent_layout.addWidget(self.stacked, 1)
 
-    def open_aquaculture_section(self, index=0):
-        """باز کردن صفحه مدیریت آبزیپروری با تب انتخابی (0=هچری, 1=نرسری, 2=پرورش)"""
+    def open_aquaculture_section(self, index=2):
+        """
+        باز کردن صفحه مدیریت آبزیپروری با تب انتخابی
+        0 = هچری
+        1 = نرسری
+        2 = پرورش در دریا
+        """
         if hasattr(self, 'aquaculture_tab'):
             self.stacked.setCurrentWidget(self.aquaculture_tab)
             if hasattr(self.aquaculture_tab, 'tabs'):
+                # اطمینان از اینکه index در محدوده است
+                if index < 0 or index > 2:
+                    index = 2
                 self.aquaculture_tab.tabs.setCurrentIndex(index)
+                
+                # دریافت مزرعه و مورینگ از صفحه طراحی
                 if hasattr(self.design_page, 'current_farm') and hasattr(self.design_page, 'current_mooring'):
-                    self.aquaculture_tab.set_farm_and_mooring(
-                        self.design_page.current_farm, 
-                        self.design_page.current_mooring
-                    )
+                    farm = self.design_page.current_farm
+                    mooring = self.design_page.current_mooring
+                    
+                    if farm and mooring:
+                        self.aquaculture_tab.set_farm_and_mooring(farm, mooring)
+                        print(f"DEBUG: set_farm_and_mooring با farm={farm.id}, mooring={mooring.id}")
+                    else:
+                        # اگر انتخاب نشده، سعی کنید آخرین انتخاب را بارگذاری کنید
+                        if hasattr(self.design_page, 'load_last_selection'):
+                            self.design_page.load_last_selection()
+                            if self.design_page.current_farm and self.design_page.current_mooring:
+                                self.aquaculture_tab.set_farm_and_mooring(
+                                    self.design_page.current_farm, 
+                                    self.design_page.current_mooring
+                                )
+                                print(f"DEBUG: بارگذاری از فایل - farm={self.design_page.current_farm.id}, mooring={self.design_page.current_mooring.id}")
 
     def open_planning_section(self, index=0):
         """باز کردن صفحه برنامهریزی تولید"""
@@ -333,7 +358,7 @@ class MainWindow(QtWidgets.QMainWindow):
                 if hasattr(self.design_page, 'current_farm') and hasattr(self.design_page, 'current_mooring'):
                     self.planning_tab.current_farm = self.design_page.current_farm
                     self.planning_tab.current_mooring = self.design_page.current_mooring
-                    self.planning_tab.load_data()
+                    
 
     def add_company(self):
         """تعریف شرکت جدید"""
@@ -384,3 +409,9 @@ class MainWindow(QtWidgets.QMainWindow):
             self.close()
             # راهاندازی مجدد برنامه
             os.execl(sys.executable, sys.executable, *sys.argv)
+
+    def closeEvent(self, event):
+        """ذخیره انتخاب‌ها قبل از بستن برنامه"""
+        if hasattr(self, 'design_page'):
+            self.design_page.save_current_selection()
+        event.accept()

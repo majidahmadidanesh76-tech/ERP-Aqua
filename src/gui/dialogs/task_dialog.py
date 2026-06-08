@@ -1,11 +1,12 @@
 """
-دیالوگ افزودن/ویرایش وظیفه
+دیالوگ افزودن/ویرایش وظیفه برای برنامه پرورش و نت
 """
 
 from PyQt5 import QtWidgets, QtCore
 import qtawesome as qta
 
 from ...widgets.jalali_date_edit import JalaliDateEdit
+from ...database.db_handler import DatabaseHandler
 from .task_template_dialog import TaskTemplateDialog
 
 
@@ -13,6 +14,7 @@ class TaskDialog(QtWidgets.QDialog):
     def __init__(self, parent=None, plan_id=None, is_maintenance=False, task=None):
         super().__init__(parent)
         
+        self.db = DatabaseHandler()
         self.plan_id = plan_id
         self.is_maintenance = is_maintenance
         self.task = task
@@ -22,24 +24,14 @@ class TaskDialog(QtWidgets.QDialog):
         self.setModal(True)
         self.resize(540, 580)
         
-        # استایل اصلی دیالوگ
-        self.setStyleSheet("""
-            QDialog {
-                background-color: #2D2D30;
-            }
-        """)
-        
         self.load_templates()
         self.setup_ui()
         if task:
             self.load_task_data()
 
     def load_templates(self):
-        """بارگذاری الگوهای وظایف"""
-        if hasattr(self.parent(), 'db') and self.parent().db:
-            self.templates = self.parent().db.fetch_all("SELECT * FROM task_templates ORDER BY name")
-        else:
-            self.templates = []
+        """بارگذاری الگوهای وظایف از دیتابیس"""
+        self.templates = self.db.fetch_all("SELECT * FROM task_templates ORDER BY name")
 
     def refresh_templates_combo(self):
         """بازخوانی کامبوباکس الگوها"""
@@ -64,7 +56,6 @@ class TaskDialog(QtWidgets.QDialog):
         layout.setSpacing(12)
         layout.setContentsMargins(20, 20, 20, 20)
 
-        # استایل یکسان برای همه ویجت‌ها
         field_style = """
             QLineEdit, QTextEdit, QComboBox, QSpinBox, QTimeEdit {
                 background-color: #3C3C3F;
@@ -103,7 +94,6 @@ class TaskDialog(QtWidgets.QDialog):
             }
         """
         
-        # استایل برای لیبل‌ها
         label_style = """
             QLabel {
                 color: #C8C8C8;
@@ -225,24 +215,19 @@ class TaskDialog(QtWidgets.QDialog):
         form_layout.setSpacing(12)
         form_layout.setContentsMargins(0, 0, 0, 0)
 
-        # عنوان وظیفه (فقط خواندنی)
         self.title_edit = QtWidgets.QLineEdit()
         self.title_edit.setPlaceholderText("عنوان وظیفه")
-        self.title_edit.setReadOnly(True)
         self.title_edit.setStyleSheet(field_style)
         form_layout.addRow("عنوان:", self.title_edit)
 
-        # توضیحات
         self.desc_edit = QtWidgets.QTextEdit()
         self.desc_edit.setPlaceholderText("توضیحات...")
         self.desc_edit.setStyleSheet(field_style)
         form_layout.addRow("توضیحات:", self.desc_edit)
 
-        # تاریخ انجام
         self.scheduled_date = JalaliDateEdit()
         form_layout.addRow("تاریخ:", self.scheduled_date)
 
-        # ساعت شروع
         self.start_time = QtWidgets.QTimeEdit()
         self.start_time.setTime(QtCore.QTime(8, 0))
         self.start_time.setDisplayFormat("HH:mm")
@@ -253,7 +238,6 @@ class TaskDialog(QtWidgets.QDialog):
         self.start_time.setStyleSheet(field_style)
         form_layout.addRow("ساعت:", self.start_time)
 
-        # مدت زمان
         self.duration = QtWidgets.QSpinBox()
         self.duration.setRange(15, 1440)
         self.duration.setSuffix(" دقیقه")
@@ -262,13 +246,11 @@ class TaskDialog(QtWidgets.QDialog):
         self.duration.setStyleSheet(field_style)
         form_layout.addRow("مدت:", self.duration)
 
-        # مسئول
         self.responsible = QtWidgets.QLineEdit()
         self.responsible.setPlaceholderText("واحد مسئول")
         self.responsible.setStyleSheet(field_style)
         form_layout.addRow("مسئول:", self.responsible)
 
-        # اولویت
         self.priority = QtWidgets.QComboBox()
         self.priority.addItems(["1 - بالا", "2 - متوسط", "3 - پایین"])
         self.priority.setStyleSheet(field_style)
@@ -295,7 +277,6 @@ class TaskDialog(QtWidgets.QDialog):
         btn_layout.addWidget(cancel_btn)
         layout.addLayout(btn_layout)
 
-        # اعمال استایل لیبل‌ها روی همه لیبل‌های فرم
         for i in range(form_layout.rowCount()):
             label_item = form_layout.itemAt(i, form_layout.LabelRole)
             if label_item and label_item.widget():
@@ -313,38 +294,39 @@ class TaskDialog(QtWidgets.QDialog):
             self.responsible.setText(template.get('default_assigned_to', ''))
 
     def add_template(self):
-        dialog = TaskTemplateDialog(self, db=None)
+        dialog = TaskTemplateDialog(self, db=self.db)
         if dialog.exec_():
             data = dialog.get_data()
-            new_id = max([t['id'] for t in self.templates]) + 1 if self.templates else 1
-            new_template = {
-                'id': new_id,
-                'name': data['name'],
-                'category': data['category'],
-                'default_duration_minutes': data['duration'],
-                'default_assigned_to': data['assigned_to'],
-                'description': data['description']
-            }
-            self.templates.append(new_template)
-            self.refresh_templates_combo()
-            QtWidgets.QMessageBox.information(self, "موفق", "الگوی وظیفه اضافه شد")
+            try:
+                self.db.execute_query("""
+                    INSERT INTO task_templates (name, category, default_duration_minutes, default_assigned_to, description)
+                    VALUES (%s, %s, %s, %s, %s)
+                """, (data['name'], data['category'], data['duration'], data['assigned_to'], data['description']))
+                self.load_templates()
+                self.refresh_templates_combo()
+                QtWidgets.QMessageBox.information(self, "موفق", "الگوی وظیفه اضافه شد")
+            except Exception as e:
+                QtWidgets.QMessageBox.warning(self, "خطا", f"خطا در ذخیره الگو:\n{str(e)}")
 
     def edit_template(self):
         template = self.template_combo.currentData()
         if template:
-            dialog = TaskTemplateDialog(self, template=template, db=None)
+            dialog = TaskTemplateDialog(self, template=template, db=self.db)
             if dialog.exec_():
                 data = dialog.get_data()
-                for tpl in self.templates:
-                    if tpl['id'] == template['id']:
-                        tpl['name'] = data['name']
-                        tpl['category'] = data['category']
-                        tpl['default_duration_minutes'] = data['duration']
-                        tpl['default_assigned_to'] = data['assigned_to']
-                        tpl['description'] = data['description']
-                        break
-                self.refresh_templates_combo()
-                QtWidgets.QMessageBox.information(self, "موفق", "الگوی وظیفه ویرایش شد")
+                try:
+                    self.db.execute_query("""
+                        UPDATE task_templates 
+                        SET name = %s, category = %s, default_duration_minutes = %s, 
+                            default_assigned_to = %s, description = %s
+                        WHERE id = %s
+                    """, (data['name'], data['category'], data['duration'], 
+                          data['assigned_to'], data['description'], template['id']))
+                    self.load_templates()
+                    self.refresh_templates_combo()
+                    QtWidgets.QMessageBox.information(self, "موفق", "الگوی وظیفه ویرایش شد")
+                except Exception as e:
+                    QtWidgets.QMessageBox.warning(self, "خطا", f"خطا در ویرایش الگو:\n{str(e)}")
 
     def delete_template(self):
         template = self.template_combo.currentData()
@@ -353,25 +335,38 @@ class TaskDialog(QtWidgets.QDialog):
                 f"آیا از حذف الگوی '{template.get('name', '')}' مطمئن هستید؟",
                 QtWidgets.QMessageBox.Yes | QtWidgets.QMessageBox.No)
             if reply == QtWidgets.QMessageBox.Yes:
-                self.templates = [t for t in self.templates if t['id'] != template['id']]
-                self.refresh_templates_combo()
-                QtWidgets.QMessageBox.information(self, "موفق", "الگوی وظیفه حذف شد")
+                try:
+                    self.db.execute_query("DELETE FROM task_templates WHERE id = %s", (template['id'],))
+                    self.load_templates()
+                    self.refresh_templates_combo()
+                    QtWidgets.QMessageBox.information(self, "موفق", "الگوی وظیفه حذف شد")
+                except Exception as e:
+                    QtWidgets.QMessageBox.warning(self, "خطا", f"خطا در حذف الگو:\n{str(e)}")
 
     def load_task_data(self):
         if self.task:
             self.title_edit.setText(self.task.get('task_title', ''))
             self.desc_edit.setText(self.task.get('task_description', ''))
-            self.scheduled_date.set_jalali_date(self.task.get('scheduled_date', ''))
+            
+            scheduled_date = self.task.get('scheduled_date', '')
+            if scheduled_date and hasattr(scheduled_date, 'strftime'):
+                scheduled_date = scheduled_date.strftime('%Y/%m/%d')
+            elif scheduled_date and isinstance(scheduled_date, str) and '-' in scheduled_date:
+                scheduled_date = scheduled_date.replace('-', '/')
+            else:
+                scheduled_date = str(scheduled_date) if scheduled_date else ''
+            
+            self.scheduled_date.set_jalali_date(scheduled_date)
+            
             if self.task.get('scheduled_start_time'):
                 time_str = str(self.task['scheduled_start_time'])[:5]
                 self.start_time.setTime(QtCore.QTime.fromString(time_str, "HH:mm"))
             self.duration.setValue(self.task.get('estimated_duration_minutes', 60))
             self.responsible.setText(self.task.get('assigned_to_unit', '') or self.task.get('assigned_to_team', ''))
-            priority_map = {"1 - بالا": 1, "2 - متوسط": 2, "3 - پایین": 3}
-            for i, (text, val) in enumerate(priority_map.items()):
-                if val == self.task.get('priority_level', 2):
-                    self.priority.setCurrentIndex(i)
-                    break
+            
+            priority_map = {1: "1 - بالا", 2: "2 - متوسط", 3: "3 - پایین"}
+            priority_text = priority_map.get(self.task.get('priority_level', 2), "2 - متوسط")
+            self.priority.setCurrentText(priority_text)
 
     def accept(self):
         if not self.title_edit.text().strip():
@@ -384,11 +379,13 @@ class TaskDialog(QtWidgets.QDialog):
         priority_map = {"1 - بالا": 1, "2 - متوسط": 2, "3 - پایین": 3}
         priority = priority_map.get(self.priority.currentText(), 2)
 
+        scheduled_date = self.scheduled_date.get_jalali_date()
+
         self.result_data = {
             "task_title": self.title_edit.text().strip(),
             "task_description": self.desc_edit.toPlainText(),
             "category": "other",
-            "scheduled_date": self.scheduled_date.get_jalali_date(),
+            "scheduled_date": scheduled_date,
             "scheduled_start_time": self.start_time.time().toString("hh:mm:ss"),
             "estimated_duration_minutes": self.duration.value(),
             "assigned_to_unit": self.responsible.text().strip(),

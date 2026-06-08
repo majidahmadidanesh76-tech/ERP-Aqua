@@ -6,7 +6,7 @@ from PyQt5 import QtWidgets, QtCore, QtGui
 import qtawesome as qta
 
 from ...database.db_handler import DatabaseHandler
-
+from ..dialogs.dialog_style import BUTTON_STYLE
 
 class SmartTab(QtWidgets.QWidget):
     def __init__(self, parent=None):
@@ -27,7 +27,8 @@ class SmartTab(QtWidgets.QWidget):
 
         # نوار ابزار
         toolbar = QtWidgets.QHBoxLayout()
-        
+        toolbar.setSpacing(10)
+
         glass_icon_style = """
             QToolButton {
                 background-color: rgba(60, 60, 65, 180);
@@ -68,8 +69,10 @@ class SmartTab(QtWidgets.QWidget):
         self.table.setColumnWidth(4, 100)
         self.table.setColumnWidth(5, 200)
         self.table.setColumnWidth(6, 100)
-        self.table.verticalHeader().setDefaultSectionSize(45)
+        self.table.verticalHeader().setDefaultSectionSize(50)
         self.table.setAlternatingRowColors(True)
+        self.table.setSelectionBehavior(QtWidgets.QAbstractItemView.SelectRows)
+        self.table.setEditTriggers(QtWidgets.QAbstractItemView.NoEditTriggers)
         self.table.setStyleSheet("""
             QTableWidget {
                 border: 1px solid #3E3E42;
@@ -99,7 +102,30 @@ class SmartTab(QtWidgets.QWidget):
     def load_data(self):
         """بارگذاری پیشنهادات هوشمند از دیتابیس"""
         suggestions = self.db.get_ai_suggestions()
-        self.table.setRowCount(len(suggestions))
+        
+        # پاک کردن جدول
+        self.table.clearContents()
+        self.table.setRowCount(0)
+        
+        # اگر پیشنهادی وجود ندارد
+        if len(suggestions) == 0:
+            self.table.setRowCount(1)
+            self.table.setSpan(0, 0, 1, 7)
+            empty_item = QtWidgets.QTableWidgetItem(
+                "✅ هیچ پیشنهاد هوشمندی وجود ندارد.\n"
+                "همه پارامترها در محدوده نرمال هستند.\n\n"
+                "💡 نکته: برای ایجاد پیشنهادات تست، می‌توانید:\n"
+                "• داده‌های غیرعادی (دمای بالا، اکسیژن پایین) ثبت کنید\n"
+                "• اسکریپت smart_rules.py را manually اجرا کنید\n"
+                "• منتظر اجرای خودکار هر روز ساعت 6 صبح باشید"
+            )
+            empty_item.setTextAlignment(QtCore.Qt.AlignCenter)
+            empty_item.setForeground(QtGui.QColor('#808080'))
+            font = QtGui.QFont()
+            font.setPointSize(11)
+            empty_item.setFont(font)
+            self.table.setItem(0, 0, empty_item)
+            return
 
         type_names = {
             'alert': '⚠️ هشدار',
@@ -125,29 +151,46 @@ class SmartTab(QtWidgets.QWidget):
             QPushButton:hover { background-color: rgba(86, 156, 214, 100); color: white; }
         """
 
+        self.table.setRowCount(len(suggestions))
+
         for i, sug in enumerate(suggestions):
+            # ستون 0: نوع
             self.table.setItem(i, 0, QtWidgets.QTableWidgetItem(type_names.get(sug['suggestion_type'], sug['suggestion_type'])))
+            
+            # ستون 1: عنوان
             self.table.setItem(i, 1, QtWidgets.QTableWidgetItem(sug['title'][:50]))
+            
+            # ستون 2: توضیحات
             self.table.setItem(i, 2, QtWidgets.QTableWidgetItem(sug['description'][:80]))
+            
+            # ستون 3: اولویت
             priority_item = QtWidgets.QTableWidgetItem(priority_text.get(sug['priority'], 'متوسط'))
             priority_item.setForeground(QtGui.QColor(priority_colors.get(sug['priority'], '#C8C8C8')))
             self.table.setItem(i, 3, priority_item)
-            self.table.setItem(i, 4, QtWidgets.QTableWidgetItem(str(sug['suggested_date'] or '-')))
+            
+            # ستون 4: تاریخ پیشنهادی
+            suggested_date = sug.get('suggested_date', '')
+            if suggested_date and hasattr(suggested_date, 'strftime'):
+                suggested_date = suggested_date.strftime('%Y/%m/%d')
+            self.table.setItem(i, 4, QtWidgets.QTableWidgetItem(str(suggested_date) or '-'))
+            
+            # ستون 5: دلیل
             self.table.setItem(i, 5, QtWidgets.QTableWidgetItem(sug['reasoning'][:100] if sug['reasoning'] else '-'))
 
+            # ستون 6: عملیات
             btn_widget = QtWidgets.QWidget()
             btn_layout = QtWidgets.QHBoxLayout(btn_widget)
-            btn_layout.setContentsMargins(0, 0, 0, 0)
+            btn_layout.setContentsMargins(2, 2, 2, 2)
             btn_layout.setSpacing(5)
 
             if sug['status'] == 'pending':
                 accept_btn = QtWidgets.QPushButton("✓ قبول")
-                accept_btn.setFixedSize(60, 26)
+                accept_btn.setFixedSize(70, 28)
                 accept_btn.setStyleSheet(glass_btn_style.replace('rgba(86, 156, 214, 80)', '#2E8B57').replace('rgba(86, 156, 214, 100)', '#3CB371'))
                 accept_btn.clicked.connect(lambda checked, sid=sug['id']: self.accept_suggestion(sid))
 
                 reject_btn = QtWidgets.QPushButton("✗ رد")
-                reject_btn.setFixedSize(60, 26)
+                reject_btn.setFixedSize(70, 28)
                 reject_btn.setStyleSheet(glass_btn_style.replace('rgba(86, 156, 214, 80)', '#8B2C2C').replace('rgba(86, 156, 214, 100)', '#A33C3C'))
                 reject_btn.clicked.connect(lambda checked, sid=sug['id']: self.reject_suggestion(sid))
 

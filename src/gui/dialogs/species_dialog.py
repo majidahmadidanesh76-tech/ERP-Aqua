@@ -1,34 +1,36 @@
 """
-دیالوگ مدیریت گونه‌های ماهی برای برنامه‌ریزی تولید
+دیالوگ مدیریت گونه های ماهی برای برنامهریزی تولید
 """
 
 from PyQt5 import QtWidgets, QtCore
-from functools import partial
 from ...database.db_handler import DatabaseHandler
-
+from .dialog_style import DIALOG_STYLE, BUTTON_STYLE, CANCEL_BUTTON_STYLE
 
 class SpeciesManagementDialog(QtWidgets.QDialog):
-    """دیالوگ مدیریت گونه‌های ماهی"""
+    """دیالوگ مدیریت گونه های ماهی"""
 
     def __init__(self, parent=None):
         super().__init__(parent)
+        self.setStyleSheet(DIALOG_STYLE)
         self.db = DatabaseHandler()
-        self.setWindowTitle("🐟 مدیریت گونه‌های ماهی")
+        self.setWindowTitle("🐟 مدیریت گونههای ماهی")
         self.setModal(True)
-        self.resize(750, 500)
+        self.resize(800, 500)
         self.setup_ui()
         self.load_species()
 
     def setup_ui(self):
         layout = QtWidgets.QVBoxLayout(self)
+        layout.setSpacing(10)
+        layout.setContentsMargins(15, 15, 15, 15)
 
         # عنوان
-        title = QtWidgets.QLabel("مدیریت گونه‌های ماهی")
+        title = QtWidgets.QLabel("مدیریت گونه های ماهی")
         title.setAlignment(QtCore.Qt.AlignCenter)
-        title.setStyleSheet("font-size: 16px; font-weight: bold; color: #569CD6; padding: 10px;")
+        title.setStyleSheet("font-size: 16px; font-weight: bold; color: #569CD6; padding: 5px;")
         layout.addWidget(title)
 
-        # جدول گونه‌ها
+        # جدول گونهها
         self.table = QtWidgets.QTableWidget()
         self.table.setColumnCount(8)
         self.table.setHorizontalHeaderLabels([
@@ -44,12 +46,20 @@ class SpeciesManagementDialog(QtWidgets.QDialog):
         self.table.setColumnWidth(5, 80)
         self.table.setColumnWidth(6, 100)
         self.table.setColumnWidth(7, 120)
+        self.table.setSelectionBehavior(QtWidgets.QAbstractItemView.SelectRows)
+        self.table.setEditTriggers(QtWidgets.QAbstractItemView.NoEditTriggers)
+        self.table.setAlternatingRowColors(True)
         self.table.setStyleSheet("""
             QTableWidget {
-                border: 1px solid #2D2D30;
+                border: 1px solid #3E3E42;
                 border-radius: 4px;
                 background-color: #2D2D30;
                 alternate-background-color: #252526;
+                gridline-color: #3E3E42;
+            }
+            QTableWidget::item {
+                padding: 6px;
+                color: #C8C8C8;
             }
             QTableWidget::item:selected {
                 background-color: #0E639C;
@@ -58,65 +68,53 @@ class SpeciesManagementDialog(QtWidgets.QDialog):
                 background-color: #252526;
                 color: #569CD6;
                 border: none;
-                border-bottom: 1px solid #2D2D30;
+                border-bottom: 1px solid #3E3E42;
+                padding: 6px;
+                font-weight: bold;
             }
         """)
         layout.addWidget(self.table)
 
-        # دکمه‌های عملیات
+        # دکمههای عملیات
         btn_layout = QtWidgets.QHBoxLayout()
         btn_layout.setSpacing(10)
 
         self.add_btn = QtWidgets.QPushButton("➕ افزودن گونه جدید")
-        self.add_btn.setStyleSheet(self.get_button_style("#2E8B57"))
+        self.add_btn.setFixedSize(130, 32)
+        self.add_btn.setStyleSheet(BUTTON_STYLE)
         self.add_btn.clicked.connect(self.add_species)
 
         self.edit_btn = QtWidgets.QPushButton("✏️ ویرایش انتخاب شده")
-        self.edit_btn.setStyleSheet(self.get_button_style("#D4A574"))
+        self.edit_btn.setFixedSize(130, 32)
+        self.edit_btn.setStyleSheet(BUTTON_STYLE)
         self.edit_btn.clicked.connect(self.edit_species)
 
         self.delete_btn = QtWidgets.QPushButton("🗑️ حذف انتخاب شده")
-        self.delete_btn.setStyleSheet(self.get_button_style("#8B2C2C"))
+        self.delete_btn.setFixedSize(130, 32)
+        self.delete_btn.setStyleSheet(BUTTON_STYLE)
         self.delete_btn.clicked.connect(self.delete_species)
+
+        self.refresh_btn = QtWidgets.QPushButton("🔄 بازخوانی")
+        self.refresh_btn.setFixedSize(100, 32)
+        self.refresh_btn.setStyleSheet(BUTTON_STYLE)
+        self.refresh_btn.clicked.connect(self.load_species)
 
         btn_layout.addWidget(self.add_btn)
         btn_layout.addWidget(self.edit_btn)
         btn_layout.addWidget(self.delete_btn)
+        btn_layout.addWidget(self.refresh_btn)
         btn_layout.addStretch()
 
         close_btn = QtWidgets.QPushButton("بستن")
-        close_btn.setStyleSheet(self.get_button_style("#3C3C3C"))
+        close_btn.setFixedSize(100, 32)
+        close_btn.setStyleSheet(BUTTON_STYLE)
         close_btn.clicked.connect(self.accept)
         btn_layout.addWidget(close_btn)
 
         layout.addLayout(btn_layout)
 
-    def get_button_style(self, color):
-        return f"""
-            QPushButton {{
-                background-color: {color};
-                color: white;
-                font-weight: bold;
-                padding: 6px 12px;
-                border-radius: 4px;
-                border: none;
-            }}
-            QPushButton:hover {{
-                background-color: {self.get_hover_color(color)};
-            }}
-        """
-
-    def get_hover_color(self, color):
-        hover_map = {
-            "#2E8B57": "#3CB371",
-            "#D4A574": "#E0B080",
-            "#8B2C2C": "#A33C3C",
-            "#3C3C3C": "#4A4A4A"
-        }
-        return hover_map.get(color, "#569CD6")
-
     def load_species(self):
-        """بارگذاری لیست گونه‌ها از دیتابیس"""
+        """بارگذاری لیست گونه ها از دیتابیس"""
         species_list = self.db.get_all_species()
         self.table.setRowCount(len(species_list))
 
@@ -129,6 +127,13 @@ class SpeciesManagementDialog(QtWidgets.QDialog):
             self.table.setItem(i, 5, QtWidgets.QTableWidgetItem(str(s['target_fcr'])))
             self.table.setItem(i, 6, QtWidgets.QTableWidgetItem(str(s['typical_harvest_weight'])))
             self.table.setItem(i, 7, QtWidgets.QTableWidgetItem(str(s['avg_daily_gain'])))
+
+        if len(species_list) == 0:
+            self.table.setRowCount(1)
+            self.table.setSpan(0, 0, 1, 8)
+            empty_item = QtWidgets.QTableWidgetItem("هیچ گونه‌ای تعریف نشده است")
+            empty_item.setTextAlignment(QtCore.Qt.AlignCenter)
+            self.table.setItem(0, 0, empty_item)
 
     def add_species(self):
         """افزودن گونه جدید"""
@@ -151,12 +156,16 @@ class SpeciesManagementDialog(QtWidgets.QDialog):
     def edit_species(self):
         """ویرایش گونه انتخاب شده"""
         current_row = self.table.currentRow()
-        if current_row < 0:
+        if current_row < 0 or self.table.rowCount() == 0:
             QtWidgets.QMessageBox.warning(self, "خطا", "لطفاً یک ردیف را انتخاب کنید")
+            return
+
+        if self.table.item(current_row, 0) is None:
             return
 
         species_id = int(self.table.item(current_row, 0).text())
         species = self.db.get_species_by_id(species_id)
+        
         if not species:
             return
 
@@ -180,8 +189,11 @@ class SpeciesManagementDialog(QtWidgets.QDialog):
     def delete_species(self):
         """حذف گونه انتخاب شده"""
         current_row = self.table.currentRow()
-        if current_row < 0:
+        if current_row < 0 or self.table.rowCount() == 0:
             QtWidgets.QMessageBox.warning(self, "خطا", "لطفاً یک ردیف را انتخاب کنید")
+            return
+
+        if self.table.item(current_row, 0) is None:
             return
 
         species_id = int(self.table.item(current_row, 0).text())
@@ -204,10 +216,11 @@ class SpeciesDialog(QtWidgets.QDialog):
 
     def __init__(self, parent=None, species=None):
         super().__init__(parent)
+        self.setStyleSheet(DIALOG_STYLE)
         self.species = species
         self.setWindowTitle("➕ افزودن گونه جدید" if not species else "✏️ ویرایش گونه")
         self.setModal(True)
-        self.resize(450, 500)
+        self.resize(480, 520)
         self.setup_ui()
         if species:
             self.load_species_data()
@@ -216,22 +229,12 @@ class SpeciesDialog(QtWidgets.QDialog):
         layout = QtWidgets.QFormLayout(self)
         layout.setSpacing(12)
         layout.setLabelAlignment(QtCore.Qt.AlignRight)
-
-        label_style = "color: #C8C8C8;"
-        input_style = """
-            background-color: #3C3C3C;
-            color: #C8C8C8;
-            border: 1px solid #2D2D30;
-            border-radius: 4px;
-            padding: 6px;
-        """
+        layout.setContentsMargins(20, 20, 20, 20)
 
         # نام گونه
         self.name_edit = QtWidgets.QLineEdit()
         self.name_edit.setPlaceholderText("مثال: ماهی آزاد دریای خزر")
-        self.name_edit.setStyleSheet(input_style)
         name_label = QtWidgets.QLabel("نام گونه:")
-        name_label.setStyleSheet(label_style)
         layout.addRow(name_label, self.name_edit)
 
         # دمای بهینه (حداقل)
@@ -239,9 +242,7 @@ class SpeciesDialog(QtWidgets.QDialog):
         self.opt_temp_min.setRange(-5, 45)
         self.opt_temp_min.setSingleStep(0.5)
         self.opt_temp_min.setSuffix(" °C")
-        self.opt_temp_min.setStyleSheet(input_style)
         opt_min_label = QtWidgets.QLabel("دمای بهینه (حداقل):")
-        opt_min_label.setStyleSheet(label_style)
         layout.addRow(opt_min_label, self.opt_temp_min)
 
         # دمای بهینه (حداکثر)
@@ -249,9 +250,7 @@ class SpeciesDialog(QtWidgets.QDialog):
         self.opt_temp_max.setRange(-5, 45)
         self.opt_temp_max.setSingleStep(0.5)
         self.opt_temp_max.setSuffix(" °C")
-        self.opt_temp_max.setStyleSheet(input_style)
         opt_max_label = QtWidgets.QLabel("دمای بهینه (حداکثر):")
-        opt_max_label.setStyleSheet(label_style)
         layout.addRow(opt_max_label, self.opt_temp_max)
 
         # دمای بحرانی
@@ -259,18 +258,14 @@ class SpeciesDialog(QtWidgets.QDialog):
         self.critical_temp.setRange(-5, 50)
         self.critical_temp.setSingleStep(0.5)
         self.critical_temp.setSuffix(" °C")
-        self.critical_temp.setStyleSheet(input_style)
         crit_label = QtWidgets.QLabel("دمای بحرانی (هشدار):")
-        crit_label.setStyleSheet(label_style)
         layout.addRow(crit_label, self.critical_temp)
 
         # ضریب تبدیل هدف (FCR)
         self.target_fcr = QtWidgets.QDoubleSpinBox()
         self.target_fcr.setRange(0.5, 5.0)
         self.target_fcr.setSingleStep(0.05)
-        self.target_fcr.setStyleSheet(input_style)
         fcr_label = QtWidgets.QLabel("ضریب تبدیل هدف (FCR):")
-        fcr_label.setStyleSheet(label_style)
         layout.addRow(fcr_label, self.target_fcr)
 
         # وزن هدف برداشت
@@ -278,9 +273,7 @@ class SpeciesDialog(QtWidgets.QDialog):
         self.harvest_weight.setRange(100, 10000)
         self.harvest_weight.setSingleStep(100)
         self.harvest_weight.setSuffix(" گرم")
-        self.harvest_weight.setStyleSheet(input_style)
         weight_label = QtWidgets.QLabel("وزن هدف برداشت:")
-        weight_label.setStyleSheet(label_style)
         layout.addRow(weight_label, self.harvest_weight)
 
         # نرخ رشد روزانه
@@ -288,51 +281,29 @@ class SpeciesDialog(QtWidgets.QDialog):
         self.daily_gain.setRange(0.5, 10.0)
         self.daily_gain.setSingleStep(0.1)
         self.daily_gain.setSuffix(" گرم/روز")
-        self.daily_gain.setStyleSheet(input_style)
         gain_label = QtWidgets.QLabel("نرخ رشد روزانه:")
-        gain_label.setStyleSheet(label_style)
         layout.addRow(gain_label, self.daily_gain)
 
         # توضیحات
         self.description = QtWidgets.QTextEdit()
         self.description.setMaximumHeight(80)
         self.description.setPlaceholderText("توضیحات اضافی...")
-        self.description.setStyleSheet(f"{input_style} max-height: 80px;")
         desc_label = QtWidgets.QLabel("توضیحات:")
-        desc_label.setStyleSheet(label_style)
         layout.addRow(desc_label, self.description)
 
-        # دکمه‌ها
+        # دکمهها
         btn_layout = QtWidgets.QHBoxLayout()
+        btn_layout.setSpacing(12)
+        btn_layout.addStretch()
+
         ok_btn = QtWidgets.QPushButton("ذخیره")
-        ok_btn.setStyleSheet("""
-            QPushButton {
-                background-color: #0E639C;
-                color: white;
-                font-weight: bold;
-                padding: 8px;
-                border-radius: 4px;
-                border: none;
-            }
-            QPushButton:hover {
-                background-color: #1177BB;
-            }
-        """)
+        ok_btn.setFixedSize(90, 34)
+        ok_btn.setStyleSheet(BUTTON_STYLE)
         ok_btn.clicked.connect(self.accept)
 
         cancel_btn = QtWidgets.QPushButton("انصراف")
-        cancel_btn.setStyleSheet("""
-            QPushButton {
-                background-color: #3C3C3C;
-                color: #C8C8C8;
-                border: 1px solid #2D2D30;
-                border-radius: 4px;
-                padding: 8px;
-            }
-            QPushButton:hover {
-                background-color: #4A4A4A;
-            }
-        """)
+        cancel_btn.setFixedSize(90, 34)
+        cancel_btn.setStyleSheet(CANCEL_BUTTON_STYLE)
         cancel_btn.clicked.connect(self.reject)
 
         btn_layout.addWidget(ok_btn)
@@ -340,7 +311,7 @@ class SpeciesDialog(QtWidgets.QDialog):
         layout.addRow(btn_layout)
 
     def load_species_data(self):
-        """بارگذاری داده‌های گونه برای ویرایش"""
+        """بارگذاری دادههای گونه برای ویرایش"""
         self.name_edit.setText(self.species['name'])
         self.opt_temp_min.setValue(self.species['optimal_temp_min'])
         self.opt_temp_max.setValue(self.species['optimal_temp_max'])
