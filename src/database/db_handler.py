@@ -1,10 +1,9 @@
 """
 واسط بین برنامه و دیتابیس - نسخه نهایی
-شامل: مدیریت مزرعه، آبزی‌پروری، برنامه‌ریزی تولید، نت، پیشنهادات هوشمند، جیره‌بندی
+شامل: مدیریت مزرعه، آبزیپروری، برنامهریزی تولید، نت، پیشنهادات هوشمند، جیرهبندی
 """
 
 from .db_manager import DatabaseManager
-
 
 class DatabaseHandler:
     _instance = None
@@ -182,10 +181,10 @@ class DatabaseHandler:
             WHERE cage_id = %s AND is_active = 1
             ORDER BY cycle_id DESC LIMIT 1
         """, (cage_id,))
-        
+
         if not row:
             return None
-        
+
         from ..core.models import ProductionCycle
         cycle = ProductionCycle()
         cycle.id = row['id']
@@ -207,7 +206,7 @@ class DatabaseHandler:
             (cage_id, start_date, species, initial_count, initial_weight, target_weight, is_active, note)
             VALUES (%s, %s, %s, %s, %s, %s, 1, %s)
         """, (cage_id, start_date, species, initial_count, initial_weight, target_weight, note))
-        
+
         if result:
             last_id = self.fetch_one("SELECT LAST_INSERT_ID() as id")
             return last_id['id'] if last_id else None
@@ -234,26 +233,6 @@ class DatabaseHandler:
             SET is_active = 0, is_completed = 1 
             WHERE cycle_id = %s
         """, (cycle_id,))
-
-    def check_cycle_dependencies(self, cycle_id):
-        """بررسی وابستگی‌های دوره"""
-        biomass = self.fetch_one("SELECT COUNT(*) as cnt FROM biomasses WHERE cycle_id = %s", (cycle_id,))
-        feed = self.fetch_one("SELECT COUNT(*) as cnt FROM feeds WHERE cycle_id = %s", (cycle_id,))
-        mortality = self.fetch_one("SELECT COUNT(*) as cnt FROM mortalities WHERE cycle_id = %s", (cycle_id,))
-        harvest = self.fetch_one("SELECT COUNT(*) as cnt FROM harvests WHERE cycle_id = %s", (cycle_id,))
-        water = self.fetch_one("SELECT COUNT(*) as cnt FROM water_parameters WHERE cycle_id = %s", (cycle_id,))
-        
-        if biomass and biomass['cnt'] > 0:
-            return False, "زیست توده"
-        if feed and feed['cnt'] > 0:
-            return False, "تغذیه"
-        if mortality and mortality['cnt'] > 0:
-            return False, "تلفات"
-        if harvest and harvest['cnt'] > 0:
-            return False, "برداشت"
-        if water and water['cnt'] > 0:
-            return False, "پارامترهای آب"
-        return True, ""
 
     # ==================== تغذیه ====================
 
@@ -283,6 +262,7 @@ class DatabaseHandler:
     # ==================== تلفات ====================
 
     def save_mortality(self, cage_id, cycle_id, date, count, cause, note=""):
+        print(f"DEBUG save_mortality: cage_id={cage_id}, cycle_id={cycle_id}, date={date}, count={count}")
         return self.execute_query("""
             INSERT INTO mortalities (cage_id, cycle_id, date, count, cause, note)
             VALUES (%s, %s, %s, %s, %s, %s)
@@ -392,7 +372,7 @@ class DatabaseHandler:
             result.append(w)
         return result
 
-    # ==================== گونه‌های ماهی ====================
+    # ==================== گونههای ماهی ====================
 
     def get_all_species(self):
         return self.fetch_all("SELECT * FROM fish_species ORDER BY name")
@@ -400,43 +380,34 @@ class DatabaseHandler:
     def get_species_by_id(self, species_id):
         return self.fetch_one("SELECT * FROM fish_species WHERE id = %s", (species_id,))
 
-    # ==================== حذف ====================
-
-    def delete_harvest(self, harvest_id):
-        return self.execute_query("DELETE FROM harvests WHERE id = %s", (harvest_id,))
-
-    def delete_biomass(self, biomass_id):
-        return self.execute_query("DELETE FROM biomasses WHERE id = %s", (biomass_id,))
-
-    def delete_water_parameter(self, param_id):
-        return self.execute_query("DELETE FROM water_parameters WHERE id = %s", (param_id,))
-
-    # ==================== وظایف روزانه (برای سازگاری) ====================
-
-    def get_daily_tasks_by_date(self, task_date):
-        return self.fetch_all("SELECT * FROM daily_tasks WHERE task_date = %s", (task_date,))
-
-    def save_daily_task(self, plan_id, task_date, task_type, assigned_to, shift_time, notes=""):
-        return self.execute_query("""
-            INSERT INTO daily_tasks (task_date, task_type, assigned_to, shift_time, status, notes)
-            VALUES (%s, %s, %s, %s, 'pending', %s)
-        """, (task_date, task_type, assigned_to, shift_time, notes))
-
-    def update_task_status(self, task_id, status):
-        return self.execute_query("UPDATE daily_tasks SET status = %s WHERE id = %s", (status, task_id))
-
-    def delete_task(self, task_id):
-        return self.execute_query("DELETE FROM daily_tasks WHERE id = %s", (task_id,))
-
     # ==================== برنامه‌ریزی تولید ====================
 
     def get_all_production_plans(self, cage_id=None):
+        """
+        دریافت تمام برنامه‌های تولید
+        اگر cage_id مشخص شود، فقط برنامه‌های آن قفس برگردانده می‌شود
+        """
         if cage_id:
-            return self.fetch_all("SELECT * FROM production_plans WHERE cage_id = %s ORDER BY start_date DESC", (cage_id,))
-        return self.fetch_all("SELECT * FROM production_plans ORDER BY start_date DESC")
+            return self.fetch_all("""
+                SELECT id, plan_title, plan_type, start_date, end_date, cage_id, plan_status, notes
+                FROM production_plans 
+                WHERE cage_id = %s 
+                ORDER BY start_date DESC
+            """, (cage_id,))
+        else:
+            return self.fetch_all("""
+                SELECT id, plan_title, plan_type, start_date, end_date, cage_id, plan_status, notes
+                FROM production_plans 
+                ORDER BY start_date DESC
+            """)
 
     def get_production_plan_by_id(self, plan_id):
-        return self.fetch_one("SELECT * FROM production_plans WHERE id = %s", (plan_id,))
+        """دریافت یک برنامه تولید بر اساس ID"""
+        return self.fetch_one("""
+            SELECT id, plan_title, plan_type, start_date, end_date, cage_id, plan_status, notes
+            FROM production_plans 
+            WHERE id = %s
+        """, (plan_id,))
 
     def create_production_plan(self, plan_title, plan_type, start_date, end_date, cage_id, planned_by, notes=""):
         return self.execute_query("""
@@ -577,7 +548,7 @@ class DatabaseHandler:
             """, (rule_value, rule_name))
         return True
 
-    # ==================== جیره‌بندی ====================
+    # ==================== جیرهبندی ====================
 
     def save_diet_formulation(self, production_cycle_id, cage_id, formulation_date, species,
                               avg_weight_gram, water_temperature, daily_feed_rate,
@@ -629,7 +600,7 @@ class DatabaseHandler:
             base_rate = 2.5
         else:
             base_rate = 1.5
-        
+
         if water_temperature < 12:
             temp_factor = 0.5
         elif water_temperature < 16:
@@ -640,7 +611,7 @@ class DatabaseHandler:
             temp_factor = 0.8
         else:
             temp_factor = 0.5
-        
+
         return round(base_rate * temp_factor, 1)
 
     def get_feed_type_by_weight(self, avg_weight_gram):

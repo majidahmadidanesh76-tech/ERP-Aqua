@@ -239,8 +239,9 @@ class AquacultureManagementTab(QtWidgets.QWidget):
         dialog = BiomassDialog(self, current_farm=self.current_farm, current_mooring=self.current_mooring,
                               harvests=self.harvest_records, default_initial_count=default_initial_count)
         if dialog.exec_():
+            # ✅ اصلاح: استفاده از cage_id انتخاب شده در دیالوگ
             result = self.db.save_biomass(
-                self.current_cycle.cage_id,
+                dialog.biomass.cage_id,
                 self.current_cycle.id,
                 dialog.biomass.date,
                 dialog.biomass.estimated_weight,
@@ -405,8 +406,9 @@ class AquacultureManagementTab(QtWidgets.QWidget):
 
         dialog = FeedDialog(self, current_farm=self.current_farm, current_mooring=self.current_mooring)
         if dialog.exec_():
+            # ✅ اصلاح: استفاده از cage_id انتخاب شده در دیالوگ
             if self.db.save_feed(
-                self.current_cycle.cage_id,
+                dialog.feed.cage_id,
                 self.current_cycle.id,
                 dialog.feed.date,
                 dialog.feed.feed_type,
@@ -495,8 +497,9 @@ class AquacultureManagementTab(QtWidgets.QWidget):
 
         dialog = MortalityDialog(self, current_farm=self.current_farm, current_mooring=self.current_mooring)
         if dialog.exec_():
+            # ✅ اصلاح: استفاده از cage_id انتخاب شده در دیالوگ
             if self.db.save_mortality(
-                self.current_cycle.cage_id,
+                dialog.mortality.cage_id,
                 self.current_cycle.id,
                 dialog.mortality.date,
                 dialog.mortality.count,
@@ -582,8 +585,9 @@ class AquacultureManagementTab(QtWidgets.QWidget):
 
         dialog = WaterParameterDialog(self, current_farm=self.current_farm, current_mooring=self.current_mooring)
         if dialog.exec_():
+            # ✅ اصلاح: استفاده از cage_id انتخاب شده در دیالوگ
             if self.db.save_water_parameter(
-                self.current_cycle.cage_id,
+                dialog.parameter.cage_id,
                 self.current_cycle.id,
                 dialog.parameter.date,
                 dialog.parameter.time,

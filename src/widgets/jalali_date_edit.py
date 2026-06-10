@@ -1,3 +1,5 @@
+# src/widgets/jalali_date_edit.py
+
 """
 ویجت انتخاب تاریخ شمسی برای ERP-Aqua
 """
@@ -7,12 +9,11 @@ from PyQt5.QtCore import QCalendar, QDate
 import jdatetime
 import re
 
-
 class JalaliDateEdit(QtWidgets.QDateEdit):
     def __init__(self, parent=None):
         super().__init__(parent)
 
-        # تنظیم استایل یکپارچه با دیالوگ‌ها
+        # تنظیم استایل یکپارچه با دیالوگها
         self.setStyleSheet("""
             QDateEdit {
                 background-color: #3C3C3F;
@@ -32,6 +33,31 @@ class JalaliDateEdit(QtWidgets.QDateEdit):
             }
             QDateEdit::down-arrow {
                 image: none;
+            }
+            QCalendarWidget {
+                background-color: #2D2D30;
+                color: #C8C8C8;
+            }
+            QCalendarWidget QToolButton {
+                background-color: #3C3C3C;
+                color: #C8C8C8;
+                border: 1px solid #3E3E42;
+                border-radius: 3px;
+            }
+            QCalendarWidget QToolButton:hover {
+                background-color: #0E639C;
+                color: white;
+            }
+            QCalendarWidget QSpinBox {
+                background-color: #3C3C3C;
+                color: #C8C8C8;
+                border: 1px solid #3E3E42;
+                border-radius: 3px;
+            }
+            QCalendarWidget QAbstractItemView:enabled {
+                background-color: #2D2D30;
+                color: #C8C8C8;
+                selection-background-color: #0E639C;
             }
         """)
 

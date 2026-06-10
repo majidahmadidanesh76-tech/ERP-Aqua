@@ -408,7 +408,7 @@ class MainWindow(QtWidgets.QMainWindow):
         if reply == QtWidgets.QMessageBox.Yes:
             self.close()
             # راهاندازی مجدد برنامه
-            os.execl(sys.executable, sys.executable, *sys.argv)
+            QtWidgets.QApplication.quit()
 
     def closeEvent(self, event):
         """ذخیره انتخاب‌ها قبل از بستن برنامه"""
