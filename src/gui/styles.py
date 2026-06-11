@@ -1,410 +1,507 @@
 """
-تم و استایلهای برنامه ERP-Aqua
-شامل تمام تنظیمات ظاهری برنامه
+تم حرفه‌ای "دریای آبی" برای ERP-Aqua
+فقط استایل - بدون تغییر در منطق برنامه
 """
 
 STYLE = """
+/* ======================================================
+   تم "دریای آبی" - مخصوص ERP-Aqua
+   ====================================================== */
+
 * {
-    font-family: 'Segoe UI', 'IranSans', Tahoma, Geneva, Verdana, sans-serif;
+    font-family: 'Segoe UI', 'Vazir', 'IranSans', Tahoma, Geneva, Verdana, sans-serif;
     font-size: 12px;
 }
 
+/* ========== پس‌زمینه اصلی ========== */
 QMainWindow, QWidget {
-    background-color: #1E1E1E;
+    background-color: #F0F4F9;
+    color: #1E2A3A;
 }
 
-/* ==================== منوی کناری (سایدبار) ==================== */
+/* ========== سایدبار با رنگ آبی ملایم ========== */
 .sidebar {
-    background-color: #252526;
-    border-left: 1px solid #3E3E42;
+    background-color: #2B8CC4;
+    border-right: none;
 }
 
 .sidebar QPushButton {
-    background-color: #252526;
-    color: #C8C8C8;
-    font-size: 13px;
-    font-weight: normal;
+    background-color: transparent;
+    color: #FFFFFF;
+    font-size: 12px;
+    font-weight: 600;
     text-align: left;
-    padding-left: 40px;
+    padding: 8px 0px 8px 32px;
     border: none;
-    border-radius: 0px;
-    margin: 0px;
-    height: 35px;
+    border-radius: 8px;
+    margin: 2px 8px;
+    min-height: 32px;
 }
 
 .sidebar QPushButton:hover {
-    background-color: #2A2D2E;
-    color: #FFFFFF;
-    border-left: 3px solid #569CD6;
+    background-color: rgba(255, 255, 255, 0.15);
 }
 
 .sidebar QPushButton:pressed {
-    background-color: #37373D;
+    background-color: rgba(255, 255, 255, 0.25);
 }
 
-/* ==================== منوی افقی بالای صفحه ==================== */
+.sidebar QPushButton::icon {
+    margin-right: 8px;
+}
+
+/* ========== منوی افقی ========== */
 QMenuBar {
-    background-color: #252526;
-    color: #C8C8C8;
-    border-bottom: 1px solid #3E3E42;
-    font-weight: normal;
-    font-size: 12px;
+    background-color: #FFFFFF;
+    color: #1E2A3A;
+    border-bottom: 1px solid #DCE5ED;
+    font-weight: 500;
 }
 
 QMenuBar::item {
     background-color: transparent;
-    padding: 5px 10px;
-    margin: 0px;
-    border-radius: 4px;
+    padding: 8px 16px;
+    border-radius: 8px;
 }
 
 QMenuBar::item:selected {
-    background-color: #2A2D2E;
-    color: #569CD6;
-}
-
-QMenuBar::item:pressed {
-    background-color: #264F78;
+    background-color: #E6F0FA;
+    color: #1A7AB5;
 }
 
 QMenu {
-    background-color: #252526;
-    color: #C8C8C8;
-    border: 1px solid #3E3E42;
-    border-radius: 4px;
-    padding: 4px;
+    background-color: #FFFFFF;
+    color: #1E2A3A;
+    border: 1px solid #DCE5ED;
+    border-radius: 12px;
+    padding: 6px;
 }
 
 QMenu::item {
-    padding: 5px 30px 5px 20px;
-    border-radius: 4px;
+    padding: 8px 32px 8px 16px;
+    border-radius: 8px;
     margin: 2px;
 }
 
 QMenu::item:selected {
-    background-color: #2A2D2E;
-    color: #569CD6;
+    background-color: #E6F0FA;
+    color: #1A7AB5;
 }
 
-QMenu::separator {
-    height: 1px;
-    background-color: #3E3E42;
-    margin: 4px 8px;
-}
-
-/* ==================== جدولها ==================== */
+/* ========== جدول‌ها ========== */
 QTableWidget {
-    background-color: #2D2D30;
-    border: 1px solid #3E3E42;
-    border-radius: 4px;
-    gridline-color: #3E3E42;
-    selection-background-color: #264F78;
-    selection-color: #FFFFFF;
+    background-color: #FFFFFF;
+    border: 2px solid #2B8CC4;
+    border-radius: 12px;
+    gridline-color: #E8EDF2;
+    selection-background-color: #D6E9FF;
+    selection-color: #0A5C8E;
+    outline: none;
 }
 
 QTableWidget::item {
-    padding: 4px 6px;
-    border-bottom: 1px solid #3E3E42;
-    color: #C8C8C8;
+    padding: 10px 12px;
+    border-bottom: 1px solid #E8EDF2;
+    color: #1E2A3A;
+    font-weight: 500;
 }
 
 QTableWidget::item:hover {
-    background-color: #3E3E42;
+    background-color: #F5F9FF;
+}
+
+QTableWidget::item:selected {
+    background-color: #D6E9FF;
+    color: #0A5C8E;
+    border-left: 3px solid #2B8CC4;
 }
 
 QHeaderView::section {
-    background-color: #252526;
-    color: #C8C8C8;
-    padding: 4px 6px;
+    background-color: #2B8CC4;
+    color: #FFFFFF;
+    padding: 10px 12px;
     border: none;
-    border-bottom: 1px solid #3E3E42;
-    font-weight: bold;
-    height: 26px;
+    font-weight: 700;
+    font-size: 12px;
 }
 
-/* ==================== کامبوباکس ==================== */
+/* ========== دکمه‌های ستون عملیات - آیکون‌های قابل مشاهده ========== */
+QTableWidget QToolButton {
+    background-color: #E8F0FE;
+    border: 1px solid #2B8CC4;
+    border-radius: 6px;
+    padding: 6px;
+    min-width: 28px;
+    min-height: 28px;
+}
+
+QTableWidget QToolButton:hover {
+    background-color: #2B8CC4;
+}
+
+QTableWidget QToolButton:hover QToolButton::icon {
+    color: white;
+}
+
+QTableWidget QToolButton:pressed {
+    background-color: #1A7AB5;
+}
+
+/* ========== کامبوباکس ========== */
 QComboBox {
-    background-color: #3C3C3C;
-    border: 1px solid #3E3E42;
-    border-radius: 4px;
-    padding: 5px 10px;
-    min-width: 130px;
-    color: #C8C8C8;
+    background-color: #FFFFFF;
+    border: 1px solid #D0D8E0;
+    border-radius: 10px;
+    padding: 7px 14px;
+    color: #1E2A3A;
 }
 
 QComboBox:hover {
-    border-color: #569CD6;
+    border-color: #2B8CC4;
+    background-color: #F5F9FF;
 }
 
-QComboBox::drop-down {
+/* ========== دکمه‌ها ========== */
+QPushButton {
+    background-color: #2B8CC4;
+    color: white;
     border: none;
-    width: 0px;
+    border-radius: 10px;
+    padding: 8px 16px;
+    font-weight: 600;
 }
 
-QComboBox::down-arrow {
-    image: none;
+QPushButton:hover {
+    background-color: #1A7AB5;
 }
 
-/* ==================== دکمههای ابزار ==================== */
+QPushButton:pressed {
+    background-color: #0A5C8E;
+}
+
+/* دکمه ثانویه */
+QPushButton[secondary="true"] {
+    background-color: #EFF3F8;
+    color: #2B8CC4;
+    border: 1px solid #D0D8E0;
+}
+
+QPushButton[secondary="true"]:hover {
+    background-color: #E6F0FA;
+    border-color: #2B8CC4;
+}
+
+/* دکمه موفقیت */
+QPushButton[success="true"] {
+    background-color: #0F9D58;
+}
+
+QPushButton[success="true"]:hover {
+    background-color: #0B8043;
+}
+
+/* دکمه خطر */
+QPushButton[danger="true"] {
+    background-color: #DB4437;
+}
+
+QPushButton[danger="true"]:hover {
+    background-color: #C5221F;
+}
+
+/* ========== دکمه‌های ابزار ========== */
 QToolButton {
     background-color: transparent;
     border: none;
-    padding: 3px;
-    border-radius: 4px;
+    padding: 6px;
+    border-radius: 8px;
+    color: #5F6C80;
 }
 
 QToolButton:hover {
-    background-color: rgba(86, 156, 214, 50);
+    background-color: #E6F0FA;
+    color: #2B8CC4;
 }
 
-QToolButton:pressed {
-    background-color: rgba(86, 156, 214, 100);
-}
-
-/* دکمه شیشهای برای زوم */
+/* دکمه شیشه‌ای */
 .glass-btn {
-    background-color: rgba(60, 60, 60, 180);
-    border: 1px solid rgba(86, 156, 214, 100);
-    border-radius: 6px;
+    background-color: rgba(255, 255, 255, 0.9);
+    border: 1px solid rgba(43, 140, 196, 0.4);
+    border-radius: 10px;
+    padding: 6px;
 }
 
 .glass-btn:hover {
-    background-color: rgba(86, 156, 214, 150);
+    background-color: #FFFFFF;
+    border-color: #2B8CC4;
 }
 
-/* ==================== لیست ویجت ==================== */
+/* ========== لیست ویجت ========== */
 QListWidget {
-    background-color: #252526;
-    border: 1px solid #3E3E42;
-    border-radius: 4px;
-    padding: 2px;
-    color: #C8C8C8;
+    background-color: #FFFFFF;
+    border: 1px solid #DCE5ED;
+    border-radius: 12px;
+    padding: 6px;
 }
 
 QListWidget::item {
-    padding: 2px 6px;
-    border-radius: 3px;
-    margin: 1px;
-    height: 24px;
+    padding: 8px 14px;
+    border-radius: 8px;
+    margin: 2px;
 }
 
 QListWidget::item:hover {
-    background-color: #2A2D2E;
+    background-color: #E6F0FA;
 }
 
 QListWidget::item:selected {
-    background-color: #264F78;
-    color: #FFFFFF;
+    background-color: #D6E9FF;
+    color: #0A5C8E;
 }
 
-/* ==================== نقشه ==================== */
+/* ========== نقشه ========== */
 QGraphicsView {
-    background-color: #2D2D30 !important;
-    border: 1px solid #3E3E42 !important;
-    border-radius: 6px !important;
+    background-color: #FFFFFF !important;
+    border: 1px solid rgba(43, 140, 196, 0.2) !important;
+    border-radius: 16px !important;
 }
 
-/* ==================== اسکرول بار ==================== */
+/* ========== اسکرول بار ========== */
 QScrollBar:vertical {
-    background-color: #1E1E1E;
-    width: 8px;
+    background-color: #F0F2F5;
+    width: 7px;
+    border-radius: 3px;
 }
 
 QScrollBar::handle:vertical {
-    background-color: #686868;
-    border-radius: 4px;
+    background-color: #B0C4DE;
+    border-radius: 3px;
     min-height: 30px;
 }
 
 QScrollBar::handle:vertical:hover {
-    background-color: #8A8A8A;
+    background-color: #2B8CC4;
 }
 
 QScrollBar::add-line:vertical, QScrollBar::sub-line:vertical {
     height: 0px;
 }
 
-/* ==================== دیالوگها ==================== */
+/* ========== دیالوگ‌ها ========== */
 QDialog {
-    background-color: #252526;
+    background-color: #FFFFFF;
+    border-radius: 16px;
 }
 
 QDialog QLabel {
-    color: #C8C8C8;
+    color: #1E2A3A;
 }
 
-QDialog QLineEdit, QDialog QComboBox, QDialog QDoubleSpinBox, QDialog QSpinBox {
-    background-color: #3C3C3C;
-    border: 1px solid #3E3E42;
-    border-radius: 4px;
-    padding: 5px 8px;
-    color: #C8C8C8;
+QDialog QLineEdit, QDialog QComboBox, QDialog QDoubleSpinBox, 
+QDialog QSpinBox, QDialog QTextEdit, QDialog QDateEdit {
+    background-color: #FFFFFF;
+    border: 1px solid #D0D8E0;
+    border-radius: 10px;
+    padding: 8px 14px;
+    color: #1E2A3A;
 }
 
 QDialog QLineEdit:focus, QDialog QComboBox:focus {
-    border-color: #569CD6;
+    border-color: #2B8CC4;
 }
 
 QDialog QPushButton {
-    background-color: #0E639C;
+    background-color: #2B8CC4;
     color: white;
     border: none;
-    border-radius: 4px;
-    padding: 5px 14px;
+    border-radius: 10px;
+    padding: 8px 20px;
+    font-weight: 600;
 }
 
 QDialog QPushButton:hover {
-    background-color: #1177BB;
+    background-color: #1A7AB5;
 }
 
-/* ==================== فیلدهای تاریخ (QDateEdit) ==================== */
-QDateEdit, QDateTimeEdit {
-    background-color: #3C3C3C;
-    border: 1px solid #3E3E42;
-    border-radius: 4px;
-    padding: 5px 8px;
-    color: #C8C8C8;
+QDialog QPushButton:last-child {
+    background-color: #EFF3F8;
+    color: #1E2A3A;
+    border: 1px solid #D0D8E0;
 }
 
-QDateEdit:focus, QDateTimeEdit:focus {
-    border-color: #569CD6;
+QDialog QPushButton:last-child:hover {
+    background-color: #E6F0FA;
+    border-color: #2B8CC4;
 }
 
-QDateEdit::drop-down, QDateTimeEdit::drop-down {
+/* ========== تب‌ها ========== */
+QTabWidget::pane {
     border: none;
-    width: 20px;
+    border-radius: 12px;
+    background-color: #FFFFFF;
 }
 
-QDateEdit::down-arrow, QDateTimeEdit::down-arrow {
-    image: none;
+QTabBar::tab {
+    background-color: transparent;
+    color: #5F6C80;
+    padding: 10px 20px;
+    margin: 2px;
+    border-radius: 10px;
+    font-weight: 500;
 }
 
-/* ==================== تقویم (Calendar Widget) ==================== */
-QCalendarWidget {
-    background-color: #2D2D30;
-    color: #C8C8C8;
-}
-
-QCalendarWidget QToolButton {
-    background-color: #3C3C3C;
-    color: #C8C8C8;
-    border: 1px solid #3E3E42;
-    border-radius: 4px;
-}
-
-QCalendarWidget QToolButton:hover {
-    background-color: #569CD6;
+QTabBar::tab:selected {
+    background-color: #2B8CC4;
     color: white;
 }
 
-QCalendarWidget QMenu {
-    background-color: #2D2D30;
-    color: #C8C8C8;
+QTabBar::tab:hover:!selected {
+    background-color: #E6F0FA;
+    color: #2B8CC4;
 }
 
-QCalendarWidget QSpinBox {
-    background-color: #3C3C3C;
-    color: #C8C8C8;
-    border: 1px solid #3E3E42;
-    border-radius: 4px;
-}
-
-QCalendarWidget QAbstractItemView:enabled {
-    background-color: #2D2D30;
-    color: #C8C8C8;
-    selection-background-color: #569CD6;
-}
-
-QCalendarWidget QWidget {
-    background-color: #2D2D30;
-    color: #C8C8C8;
-}
-
-/* ==================== ToolTip ==================== */
+/* ========== ToolTip ========== */
 QToolTip {
-    background-color: #0E639C;
+    background-color: #1E2A3A;
     color: #FFFFFF;
     border: none;
     font-size: 11px;
-    padding: 4px 8px;
-    border-radius: 4px;
+    padding: 6px 14px;
+    border-radius: 10px;
+}
+
+/* ========== Group Box ========== */
+QGroupBox {
+    color: #2B8CC4;
+    border: 1px solid #DCE5ED;
+    border-radius: 12px;
+    margin-top: 12px;
+    padding-top: 12px;
+    font-weight: 600;
+}
+
+QGroupBox::title {
+    subcontrol-origin: margin;
+    left: 12px;
+    padding: 0 10px;
+}
+
+/* ========== پیام خطا ========== */
+QMessageBox QLabel {
+    color: #1E2A3A;
+}
+
+QMessageBox QPushButton {
+    min-width: 80px;
 }
 """
 
-# ==================== استایل دکمه شیشهای برای آیکونها ====================
+# ==================== استایل‌های کمکی ====================
+
 GLASS_BTN_STYLE = """
     QToolButton {
-        background-color: transparent;
-        border: none;
-        padding: 5px;
-        border-radius: 6px;
+        background-color: rgba(255, 255, 255, 0.9);
+        border: 1px solid rgba(43, 140, 196, 0.4);
+        border-radius: 10px;
+        padding: 6px;
     }
     QToolButton:hover {
-        background-color: rgba(86, 156, 214, 60);
-    }
-    QToolButton:pressed {
-        background-color: rgba(86, 156, 214, 100);
-    }
-    QToolButton:checked {
-        background-color: rgba(86, 156, 214, 120);
-        border: 1px solid rgba(86, 156, 214, 200);
+        background-color: #FFFFFF;
+        border-color: #2B8CC4;
     }
 """
 
-# ==================== استایل آیکونهای کوچک لیست ====================
 SMALL_ICON_STYLE = """
     QToolButton {
-        background-color: rgba(60, 60, 65, 180);
+        background-color: #F8FAFE;
         border: none;
-        border-radius: 4px;
-        padding: 2px;
-        min-width: 24px;
-        min-height: 24px;
+        border-radius: 10px;
+        padding: 6px;
+        min-width: 34px;
+        min-height: 34px;
     }
     QToolButton:hover {
-        background-color: rgba(86, 156, 214, 100);
+        background-color: #E6F0FA;
+        border: 1px solid #2B8CC4;
     }
     QToolButton:checked {
-        background-color: rgba(86, 156, 214, 160);
-        border: 1px solid rgba(86, 156, 214, 200);
+        background-color: #D6E9FF;
+        border: 2px solid #2B8CC4;
     }
 """
 
-# ==================== استایل پنل شیشهای ====================
 GLASS_PANEL_STYLE = """
     QWidget {
-        background-color: rgba(37, 37, 38, 220);
-        border-radius: 8px;
-        border: 1px solid rgba(86, 156, 214, 80);
-        margin: 2px;
-    }
-    QWidget:hover {
-        border-color: rgba(86, 156, 214, 150);
+        background-color: rgba(255, 255, 255, 0.95);
+        border-radius: 16px;
+        border: 1px solid rgba(43, 140, 196, 0.3);
+        margin: 4px;
     }
 """
 
-# ==================== استایل تبها (برای دیالوگ لیست نهایی) ====================
 TAB_STYLE = """
     QTabWidget::pane {
-        border: 1px solid #3E3E42;
-        border-radius: 4px;
-        background-color: #1E1E1E;
+        border: none;
+        border-radius: 12px;
+        background-color: #FFFFFF;
     }
     QTabBar::tab {
-        background-color: #2D2D30;
-        color: #C8C8C8;
-        padding: 4px 10px;
-        margin: 1px;
+        background-color: transparent;
+        color: #5F6C80;
+        padding: 8px 18px;
+        margin: 2px;
         border: none;
-        font-weight: bold;
+        font-weight: 500;
+        border-radius: 8px;
     }
     QTabBar::tab:selected {
-        background-color: #1E1E1E;
-        color: #569CD6;
-        border-bottom: 2px solid #569CD6;
+        background-color: #2B8CC4;
+        color: white;
     }
     QTabBar::tab:hover:!selected {
-        background-color: #37373D;
-        color: #FFFFFF;
+        background-color: #E6F0FA;
+        color: #2B8CC4;
+    }
+"""
+
+SUCCESS_BTN_STYLE = """
+    QPushButton {
+        background-color: #0F9D58;
+        color: white;
+        border: none;
+        border-radius: 10px;
+        padding: 8px 18px;
+        font-weight: 600;
+    }
+    QPushButton:hover {
+        background-color: #0B8043;
+    }
+"""
+
+WARNING_BTN_STYLE = """
+    QPushButton {
+        background-color: #F4B400;
+        color: white;
+        border: none;
+        border-radius: 10px;
+        padding: 8px 18px;
+        font-weight: 600;
+    }
+    QPushButton:hover {
+        background-color: #E37400;
+    }
+"""
+
+DANGER_BTN_STYLE = """
+    QPushButton {
+        background-color: #DB4437;
+        color: white;
+        border: none;
+        border-radius: 10px;
+        padding: 8px 18px;
+        font-weight: 600;
+    }
+    QPushButton:hover {
+        background-color: #C5221F;
     }
 """
